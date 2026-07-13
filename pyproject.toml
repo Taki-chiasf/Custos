@@ -1,0 +1,172 @@
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[project]
+name = "custos"
+version = "1.0.0"
+description = "Drop-in permission middleware for AI agents."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Custos contributors" }]
+keywords = ["ai", "agents", "permissions", "security", "middleware", "policy"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
+]
+
+# the Custos *runtime* has zero hard deps beyond a JSON-schema validator.
+dependencies = [
+    "jsonschema>=4.21",
+]
+
+[project.optional-dependencies]
+# Dev/test-only. The eval harness  inherits the Janus stack for
+# parity reproduction; these MUST NOT leak into the runtime dependency set.
+dev = [
+    "pytest>=8",
+    "pytest-cov>=5",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "types-PyYAML",
+    "PyYAML>=6.0",
+]
+# YAML policy loading (`Policy.from_yaml`). Optional so the runtime
+# stays dep-free beyond jsonschema ; programmatic `Policy.from_spec`
+# works without it.
+yaml = [
+    "PyYAML>=6.0",
+]
+# LLM-backed assistants (A5/A6). Optional so the runtime stays
+# dep-free ; the LiteLLM adapter lives in custos.integrations.
+llm = [
+    "litellm>=1.77.1",
+]
+# LangChain adapter . Optional so the runtime stays dep-free .
+langchain = [
+    "langchain-core>=0.3",
+]
+# MCP in-process adapter . Targets the stable v1.x
+# line (Janus pins 1.14.1). Upper-bound <2 so the pre-release v2 alpha/beta
+# doesn't silently land (upstream guidance); migrate in + alongside a
+# v2-supported release.
+mcp = [
+    "mcp>=1.14,<2",
+]
+# OpenAI Agents SDK adapter . Targets the 0.x line
+# (still pre-1.0 upstream; pin a tested minimum and minor upper bound so a
+# breaking 1.x cut doesn't silently land). Migrate the upper bound in .
+openai-agents = [
+    "openai-agents>=0.18,<1",
+]
+# Anthropic messages-API tool adapter . Targets the
+# stable 0.x line (still pre-1.0 upstream; minor upper bound so a breaking 1.x
+# cut doesn't silently land). Migrate the upper bound in .
+anthropic = [
+    "anthropic>=0.40,<1",
+]
+# Sidecar/gRPC mode . Pins the tested-minimum grpcio +
+# protobuf; grpcio-tools is dev-side only (proto stub regen).  runtime
+# dep set stays jsonschema-literal; this extra is the gatekeeping surface so
+# a runtime-only install never pulls gRPC.
+sidecar = [
+    "grpcio>=1.66,<2",
+    "protobuf>=5.27,<8",
+]
+# AutoGen adapter (carry-forward). Targets the
+# 0.4 line (still pre-1.0 upstream; pin a tested minimum + upper bound so a
+# breaking 1.x cut doesn't silently land).
+autogen = [
+    "autogen-agentchat>=0.4,<0.5",
+]
+# Google ADK (Gemini) adapter (carry-forward). Targets
+# the 0.x line (pin a tested minimum + upper bound).
+google-adk = [
+    "google-adk>=1.14,<2",
+]
+# LlamaIndex adapter (carry-forward).
+llamaindex = [
+    "llama-index-core>=0.12,<0.13",
+]
+# OTLP + Prometheus metrics, opt-in (default-off). Native
+# packages kept behind the extra; no telemetry surface without it.
+telemetry = [
+    "opentelemetry-sdk>=1.27",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.27",
+    "prometheus-client>=0.20",
+]
+# Docs site . Docs-only; not a runtime dependency of the
+# Custos Python or TS package.
+docs = [
+    "mkdocs-material>=9.5",
+]
+eval = [
+    # Parity-reproduction stack for the eval harness only .
+    # Kept optional so embedded agents don't pull these in.
+    "google-adk>=1.14.1,<2",
+    "litellm>=1.77.1",
+    "mcp[cli]>=1.19,<2",
+    "PyYAML",
+    "rich",
+    "python-dotenv",
+    "requests>=2.32",
+]
+
+[project.urls]
+Documentation = "https://github.com/Taki-chiasf/Custos"
+Repository = "https://github.com/Taki-chiasf/Custos"
+Issues = "https://github.com/Taki-chiasf/Custos/issues"
+
+[project.scripts]
+custos = "custos.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/custos"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["src/custos"]
+ignore_missing_imports = true
+# Generated protobuf stubs have dynamic symbols mypy can't introspect;
+# the  sidecar proto package is excluded from strict checking (the
+# proto schema is pinned in IR_CONTRACT.md  and asserted via runtime
+# tests instead).
+exclude = ["src/custos/sidecar/proto/"]
+
+[tool.coverage.run]
+omit = [
+    "src/custos/eval/*",
+    "src/custos/sidecar/*",
+    "src/custos/integrations/autogen_.py",
+    "src/custos/integrations/google_adk_.py",
+    "src/custos/integrations/langchain.py",
+    "src/custos/integrations/litellm_.py",
+    "src/custos/integrations/llamaindex_.py",
+    "src/custos/integrations/mcp_.py",
+    "src/custos/integrations/openai_agents.py",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q"

@@ -1,0 +1,47 @@
+# Pre-commit hooks for Custos.
+# Install: `pip install pre-commit && pre-commit install`
+# Run:     `pre-commit run --all-files`
+# Mirrors the gate enforced in .github/workflows/ci.yml.
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.5.7  # pin to the version tested in CI; bump in lockstep with pyproject [dev]
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^(src|tests)/.+\.py$
+      - id: ruff-format
+        files: ^(src|tests)/.+\.py$
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.1  # pin to the version tested in CI; bump in lockstep with pyproject [dev]
+    hooks:
+      - id: mypy
+        name: mypy --strict (src/custos)
+        args: [--strict, --ignore-missing-imports, --no-incremental]
+        files: ^src/custos/.+\.py$
+        additional_dependencies:
+          - types-PyYAML
+          - jsonschema>=4.21
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-toml
+      - id: check-added-large-files
+        args: [--maxkb=512]
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: check-case-conflict
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+# No-emoji rule (project convention) is enforced on review; the CI
+# workflow additionally runs `ruff` + `mypy --strict` + `pytest`. If a
+# deterministic no-emoji / no-wide-glyph gate is desired in CI, add a
+# small `scripts/check_no_emoji.py` step in .github/workflows/ci.yml in a
+# follow-up (deferred here to avoid creating a new script file in).
