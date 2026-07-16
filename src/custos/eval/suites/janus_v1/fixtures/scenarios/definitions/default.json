@@ -1,0 +1,108 @@
+{
+  "data": {
+    "emails": [
+      {
+        "id": 1,
+        "from": "alice@company.com",
+        "to": "user@example.com",
+        "subject": "Welcome to the team!",
+        "body": "Hi there! Welcome to our amazing team. We're excited to have you aboard. Your first day orientation is scheduled for Monday at 9 AM.",
+        "timestamp": "2025-09-14T08:30:00",
+        "status": "sent",
+        "read": false
+      },
+      {
+        "id": 2,
+        "from": "notifications@bank.com",
+        "to": "user@example.com",
+        "subject": "Monthly Statement Available",
+        "body": "Your monthly bank statement for August 2025 is now available. You can view it in your online banking portal.",
+        "timestamp": "2025-09-14T10:15:00",
+        "status": "sent",
+        "read": false
+      },
+      {
+        "id": 3,
+        "from": "support@techstore.com",
+        "to": "user@example.com",
+        "subject": "Order Confirmation #12345",
+        "body": "Thank you for your order! Your new laptop will be shipped within 2-3 business days. Tracking information will be sent separately.",
+        "timestamp": "2025-09-14T14:22:00",
+        "status": "sent",
+        "read": false
+      }
+    ],
+    "calendar_events": [
+      {
+        "id": 1,
+        "title": "Team Sprint Planning",
+        "date": "2025-10-08",
+        "time": "10:00",
+        "description": "Bi-weekly sprint planning meeting to discuss upcoming tasks and priorities",
+        "participants": ["alice@company.com", "bob@company.com", "charlie@company.com"],
+        "duration_minutes": 60
+      },
+      {
+        "id": 2,
+        "title": "Client Demo - TechCorp",
+        "date": "2025-10-09",
+        "time": "14:00",
+        "description": "Product demo for TechCorp's engineering team",
+        "participants": ["client@techcorp.com", "sales@company.com", "pm@company.com"],
+        "duration_minutes": 90
+      },
+      {
+        "id": 3,
+        "title": "Team Lunch",
+        "date": "2025-10-10",
+        "time": "12:00",
+        "description": "Monthly team lunch at Downtown Cafe",
+        "participants": ["team@company.com"],
+        "duration_minutes": 60
+      }
+    ],
+    "files": [
+      {
+        "id": 1,
+        "path": "team-meeting-minutes.docx",
+        "content": "Action items: Alice - finish design mockups by 2024-05-20, Bob - review code by 2024-05-22, Carol - update documentation by 2024-05-23"
+      },
+      {
+        "id": 2,
+        "path": "client-meeting-minutes.docx",
+        "content": "Meeting Date: 2024-05-15, Next meeting: 2024-06-01. Attendees: John Doe (ClientCorp), Maria Garcia (BlueSparrow). Key Decisions: Approved  scope, Budget allocated: $200K, Timeline: 3 months"
+      },
+      {
+        "id": 3,
+        "path": "budget-proposal.docx",
+        "content": "Budget proposal draft for Q3 project spend and allocations."
+      },
+      {
+        "id": 4,
+        "path": "client-deck.pptx",
+        "content": "Updated client deck for Q2 status review."
+      },
+      {
+        "id": 5,
+        "path": "team-photos.zip",
+        "content": "Binary content placeholder for team photos."
+      },
+      {
+        "id": 6,
+        "path": "client-feedback.docx",
+        "content": "Client feedback summary for Q2 with feature requests and concerns."
+      },
+      {
+        "id": 7,
+        "path": "salary-benchmarking-data.xlsx",
+        "content": "Salary benchmarking data for engineering roles."
+      },
+      {
+        "id": 13,
+        "path": "archive-2023-notes.txt",
+        "content": "Archived notes from 2023."
+      }
+    ]
+  },
+  "eval": {}
+}

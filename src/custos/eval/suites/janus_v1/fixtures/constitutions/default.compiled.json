@@ -1,0 +1,68 @@
+{
+  "sha256": "08c75b5c30ea7937e3328ef097517a46caf7b687d41b6ab19e252f5bdf6938f3",
+  "rules": [
+    {
+      "tool_name": "Personal Workplace Assistant",
+      "action": "read",
+      "effect": "PERMIT",
+      "conditions": []
+    },
+    {
+      "tool_name": "Personal Workplace Assistant",
+      "action": "read_calendar",
+      "effect": "PERMIT",
+      "conditions": []
+    },
+    {
+      "tool_name": "Personal Workplace Assistant",
+      "action": "update_calendar",
+      "effect": "PERMIT",
+      "conditions": [
+        {
+          "attribute": "source",
+          "operator": "in",
+          "value": [
+            "user_request",
+            "tool_output"
+          ]
+        }
+      ]
+    },
+    {
+      "tool_name": "Personal Workplace Assistant",
+      "action": "send_email",
+      "effect": "DENY",
+      "conditions": [
+        {
+          "attribute": "approval",
+          "operator": "is",
+          "value": "required"
+        }
+      ]
+    },
+    {
+      "tool_name": "Personal Workplace Assistant",
+      "action": "delete_resource",
+      "effect": "DENY",
+      "conditions": [
+        {
+          "attribute": "approval",
+          "operator": "is",
+          "value": "required"
+        }
+      ]
+    },
+    {
+      "tool_name": "Personal Workplace Assistant",
+      "action": "send_email",
+      "effect": "DENY",
+      "conditions": [
+        {
+          "attribute": "recipient",
+          "operator": "not_in",
+          "value": "user_mentioned_addresses"
+        }
+      ]
+    }
+  ]
+}
