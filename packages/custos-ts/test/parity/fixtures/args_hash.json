@@ -1,0 +1,278 @@
+[
+  {
+    "label": "null",
+    "input": null,
+    "canonical_json": "null",
+    "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+  },
+  {
+    "label": "bool_true",
+    "input": true,
+    "canonical_json": "true",
+    "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+  },
+  {
+    "label": "bool_false",
+    "input": false,
+    "canonical_json": "false",
+    "sha256": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa"
+  },
+  {
+    "label": "int",
+    "input": 42,
+    "canonical_json": "42",
+    "sha256": "73475cb40a568e8da8a045ced110137e159f890ac4da883b6b17dc651b3a8049"
+  },
+  {
+    "label": "int_negative",
+    "input": -7,
+    "canonical_json": "-7",
+    "sha256": "a770d3270c9dcdedf12ed9fd70444f7c8a95c26cae3cae9bd867499090a2f14b"
+  },
+  {
+    "label": "float_fractional",
+    "input": 3.14,
+    "canonical_json": "3.14",
+    "sha256": "2efff1261c25d94dd6698ea1047f5c0a7107ca98b0a6c2427ee6614143500215"
+  },
+  {
+    "label": "float_half",
+    "input": 0.5,
+    "canonical_json": "0.5",
+    "sha256": "d2cbad71ff333de67d07ec676e352ab7f38248eb69c942950157220607c55e84"
+  },
+  {
+    "label": "float_negative_frac",
+    "input": -1.25,
+    "canonical_json": "-1.25",
+    "sha256": "728af8c01a6910765623cf596926b7bf61d6ab11e0c2e7de329ab949d9054c61"
+  },
+  {
+    "label": "str_empty",
+    "input": "",
+    "canonical_json": "\"\"",
+    "sha256": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+  },
+  {
+    "label": "str_ascii",
+    "input": "hello",
+    "canonical_json": "\"hello\"",
+    "sha256": "5aa762ae383fbb727af3c7a36d4940a5b8c40a989452d2304fc958ff3f354e7a"
+  },
+  {
+    "label": "str_with_quotes",
+    "input": "a\"b",
+    "canonical_json": "\"a\\\"b\"",
+    "sha256": "8bbcb681750af483258c5ca72e83c5c397bf66aa01e7c7787c0d212fc1f6fa1d"
+  },
+  {
+    "label": "str_with_backslash",
+    "input": "a\\b",
+    "canonical_json": "\"a\\\\b\"",
+    "sha256": "d6b4439bd2d0fecbb8aeb27d4370b0354683ea72adc84cca99b5fe80aa0b62d0"
+  },
+  {
+    "label": "str_with_newline",
+    "input": "a\nb",
+    "canonical_json": "\"a\\nb\"",
+    "sha256": "8cb67f89f9ff0e25bb064da96907151d8e0eb7a5c0d4cde1b72ad1c9a30c065e"
+  },
+  {
+    "label": "str_with_tab",
+    "input": "a\tb",
+    "canonical_json": "\"a\\tb\"",
+    "sha256": "9086c3ca2d1e5a14a75356a5dad6e3266e2f7e111f5d2672350bd5d0ae9230c6"
+  },
+  {
+    "label": "str_non_ascii_latin1",
+    "input": "café",
+    "canonical_json": "\"caf\\u00e9\"",
+    "sha256": "ee08d8beb64c89c25fe7f583c6b522f7f380aab939035ec58d3fcdba24c881e1"
+  },
+  {
+    "label": "str_non_ascii_bmp",
+    "input": "héllo",
+    "canonical_json": "\"h\\u00e9llo\"",
+    "sha256": "42963537255fe0aa5e8749d003371ecb2ca50dffbb2c46b68a437e49f3e25999"
+  },
+  {
+    "label": "str_non_ascii_cjk",
+    "input": "中文",
+    "canonical_json": "\"\\u4e2d\\u6587\"",
+    "sha256": "bd1c3f2541766530995ff0087f285a5f7cc3e8997716c394f23fe08a4fd54f41"
+  },
+  {
+    "label": "str_non_bmp",
+    "input": "😀",
+    "canonical_json": "\"\\ud83d\\ude00\"",
+    "sha256": "e30439cb87e140c0b998ad3095285abfec0294e2a8916f9a8f30d85734e6f82b"
+  },
+  {
+    "label": "str_u2028",
+    "input": "a b",
+    "canonical_json": "\"a\\u2028b\"",
+    "sha256": "c8481c2e694f7d224af6d7f9ad4dcd871b8ef6666d9110be4ca458e3cf80aa8d"
+  },
+  {
+    "label": "list_empty",
+    "input": [],
+    "canonical_json": "[]",
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  {
+    "label": "list_ints",
+    "input": [
+      1,
+      2,
+      3
+    ],
+    "canonical_json": "[1, 2, 3]",
+    "sha256": "a36b1f2c3f84522dd1005145646617d7054c0851e97c72a039c0bdfac9fa07f3"
+  },
+  {
+    "label": "list_strings",
+    "input": [
+      "a",
+      "b",
+      "c"
+    ],
+    "canonical_json": "[\"a\", \"b\", \"c\"]",
+    "sha256": "d33b202c020cbde1c4a7bb26d0b02e66645407dcef42c63543cff899b8f979c8"
+  },
+  {
+    "label": "list_nested",
+    "input": [
+      1,
+      [
+        2,
+        3
+      ],
+      "x"
+    ],
+    "canonical_json": "[1, [2, 3], \"x\"]",
+    "sha256": "efc7d3b3f497ca834e902979d41e94206dde50f1d731f960637d80a7ba98d342"
+  },
+  {
+    "label": "list_order_preserved_a",
+    "input": [
+      1,
+      2,
+      3
+    ],
+    "canonical_json": "[1, 2, 3]",
+    "sha256": "a36b1f2c3f84522dd1005145646617d7054c0851e97c72a039c0bdfac9fa07f3"
+  },
+  {
+    "label": "list_order_preserved_b",
+    "input": [
+      3,
+      2,
+      1
+    ],
+    "canonical_json": "[3, 2, 1]",
+    "sha256": "d520590c6bcf63a93c14cddce3975f7c48bcaa9c4b68dde1907e69b141829687"
+  },
+  {
+    "label": "dict_empty",
+    "input": {},
+    "canonical_json": "{}",
+    "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  {
+    "label": "dict_simple",
+    "input": {
+      "a": 1,
+      "b": 2
+    },
+    "canonical_json": "{\"a\": 1, \"b\": 2}",
+    "sha256": "d8497d9d82770a70729261095aa98f7ef5154d7af499f8037b6ca250296785a6"
+  },
+  {
+    "label": "dict_key_order_a",
+    "input": {
+      "a": 1,
+      "b": 2
+    },
+    "canonical_json": "{\"a\": 1, \"b\": 2}",
+    "sha256": "d8497d9d82770a70729261095aa98f7ef5154d7af499f8037b6ca250296785a6"
+  },
+  {
+    "label": "dict_key_order_b",
+    "input": {
+      "b": 2,
+      "a": 1
+    },
+    "canonical_json": "{\"a\": 1, \"b\": 2}",
+    "sha256": "d8497d9d82770a70729261095aa98f7ef5154d7af499f8037b6ca250296785a6"
+  },
+  {
+    "label": "dict_nested",
+    "input": {
+      "outer": {
+        "inner": "value"
+      }
+    },
+    "canonical_json": "{\"outer\": {\"inner\": \"value\"}}",
+    "sha256": "48de5335d8d1307335924904092e35f54dc3bad6d582acb33d474d405452ba6b"
+  },
+  {
+    "label": "dict_with_list",
+    "input": {
+      "items": [
+        1,
+        2,
+        3
+      ]
+    },
+    "canonical_json": "{\"items\": [1, 2, 3]}",
+    "sha256": "7e2c453f38ccabf6cb720bcbb6c0dae4daff5ed11162da79e14699e40b840a4e"
+  },
+  {
+    "label": "dict_with_dict",
+    "input": {
+      "matrix": {
+        "a": {
+          "x": 1
+        }
+      }
+    },
+    "canonical_json": "{\"matrix\": {\"a\": {\"x\": 1}}}",
+    "sha256": "5e4df55613ff912e2e213b5a43125c4c50e0340ff1a60e6d8873c6eb62ba61f4"
+  },
+  {
+    "label": "dict_utf8_key_sort",
+    "input": {
+      "b": 1,
+      "a": 2,
+      "c": 3
+    },
+    "canonical_json": "{\"a\": 2, \"b\": 1, \"c\": 3}",
+    "sha256": "9aa315ee7aad68fd6980cec540a3c501a3324f999bd7b9dd9d3c44ed898beccc"
+  },
+  {
+    "label": "dict_non_ascii_key",
+    "input": {
+      "café": 1,
+      "abc": 2
+    },
+    "canonical_json": "{\"abc\": 2, \"caf\\u00e9\": 1}",
+    "sha256": "96961c5833af61bd21f45f2be573baed50c7c2ed7db029d94ea2c4e031e83a7e"
+  },
+  {
+    "label": "mixed_nested",
+    "input": {
+      "users": [
+        {
+          "id": 1,
+          "name": "alice"
+        },
+        {
+          "id": 2,
+          "name": "bob"
+        }
+      ]
+    },
+    "canonical_json": "{\"users\": [{\"id\": 1, \"name\": \"alice\"}, {\"id\": 2, \"name\": \"bob\"}]}",
+    "sha256": "74a3d78d96b91e50d75930645217634d5798933b25c7c462d68c5de3852e096d"
+  }
+]

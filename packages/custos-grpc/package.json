@@ -1,0 +1,59 @@
+{
+  "name": "@custos/grpc",
+  "version": "1.0.0-rc1.0",
+  "description": "gRPC transport for the Custos sidecar - the SidecarTransport implementation consumed by @custos/core's sidecarAssistant(transport) factory.",
+  "license": "Apache-2.0",
+  "author": "Custos contributors",
+  "keywords": ["custos", "grpc", "sidecar", "transport", "permissions", "ai", "agents"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Taki-chiasf/Custos",
+    "directory": "packages/custos-grpc"
+  },
+  "homepage": "https://github.com/Taki-chiasf/Custos#readme",
+  "bugs": "https://github.com/Taki-chiasf/Custos/issues",
+  "engines": { "node": ">=20" },
+  "type": "module",
+  "main": "./dist/esm/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "default": "./dist/esm/index.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "proto/",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@custos/core": "file:../custos-ts"
+  },
+  "peerDependencies": {
+    "@grpc/grpc-js": "^1.10",
+    "@grpc/proto-loader": "^0.7"
+  },
+  "peerDependenciesMeta": {
+    "@grpc/grpc-js": { "optional": false },
+    "@grpc/proto-loader": { "optional": false }
+  },
+  "devDependencies": {
+    "@grpc/grpc-js": "^1.10.0",
+    "@grpc/proto-loader": "^0.7.13",
+    "@types/node": "^20.11.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  }
+}

@@ -1,0 +1,77 @@
+[
+  {
+    "name": "fs.read",
+    "glob": "fs.read",
+    "expected": true
+  },
+  {
+    "name": "fs.read_file",
+    "glob": "fs.read*",
+    "expected": true
+  },
+  {
+    "name": "fs.read_file",
+    "glob": "fs.*",
+    "expected": true
+  },
+  {
+    "name": "fs.write",
+    "glob": "fs.[rs]*",
+    "expected": false
+  },
+  {
+    "name": "fs.read",
+    "glob": "fs.[rs]*",
+    "expected": true
+  },
+  {
+    "name": "fs.delete",
+    "glob": "fs.[rs]*",
+    "expected": false
+  },
+  {
+    "name": "fs.read",
+    "glob": "fs.????",
+    "expected": true
+  },
+  {
+    "name": "fs.read",
+    "glob": "fs.???",
+    "expected": false
+  },
+  {
+    "name": "fs.read",
+    "glob": "fs.?",
+    "expected": false
+  },
+  {
+    "name": "fs.read",
+    "glob": "fs.\\*",
+    "expected": false
+  },
+  {
+    "name": "fs.*",
+    "glob": "fs.*",
+    "expected": true
+  },
+  {
+    "name": "fs.read",
+    "glob": "fs.[!d]*",
+    "expected": true
+  },
+  {
+    "name": "fs.delete",
+    "glob": "fs.[!d]*",
+    "expected": false
+  },
+  {
+    "name": "fs.read",
+    "glob": "*",
+    "expected": true
+  },
+  {
+    "name": "fs.read",
+    "glob": "??.??",
+    "expected": false
+  }
+]
