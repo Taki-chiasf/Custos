@@ -6,8 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-- PyPI + npm publish via GitHub OIDC trusted publishing.
-- GitHub Release with signed tarball + SBOM.
+### Added
+- Release workflow: automated GitHub Release on tag push, with Python wheel/sdist
+  and SBOM artifacts. PyPI publish via OIDC trusted publishing; npm publish
+  (@taqiy/custos-core, @taqiy/custos-grpc) via provenance-signed CI.
+- Bumped `@taqiy/custos-grpc` 1.0.0-rc1.0 → 1.0.0 for GA.
+
+### Remaining
 - Full 1440-cell Janus-v1 parity matrix run.
 
 ## [1.0.0] — 2026-07-22
@@ -36,7 +41,7 @@ v1.0 GA. 604 Python tests + 172 TS tests pass. ruff + mypy --strict clean.
 
 ### Added
 - IR_CONTRACT.md v1.0 (cross-language wire-format pinning).
-- TypeScript SDK `@custos/core` (deterministic assistants; LLM-backed via sidecar).
+- TypeScript SDK `@taqiy/custos-core` (deterministic assistants; LLM-backed via sidecar).
 - Sidecar/gRPC mode with mTLS, bearer/OIDC, nonce, per-tenant rate limit.
 - Audit tamper-evidence (`HashChainedAuditSink` + `custos audit verify`).
 - Docs site (MkDocs Material: threat model, tutorial, cookbook).
@@ -48,7 +53,7 @@ v1.0 GA. 604 Python tests + 172 TS tests pass. ruff + mypy --strict clean.
 
 ### Changed
 - `custos.__version__` 1.0.0rc1 → 1.0.0.
-- `@custos/core` version 1.0.0-rc1.0 → 1.0.0.
+- `@taqiy/custos-core` version 1.0.0-rc1.0 → 1.0.0.
 - `pyproject.toml` classifier: Beta → Production/Stable.
 - Pinned risk_score canonical float repr; missing-signature = failed-verification.
 

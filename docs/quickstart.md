@@ -6,11 +6,11 @@ Custos is a drop-in permission middleware for AI agents. This walk shows the
 ## Install
 
 ```bash
-pip install custos                     # runtime (jsonschema only)
-pip install "custos[yaml]"             # + PyYAML for Policy.from_yaml
-pip install "custos[llm]"              # + litellm for LLM-backed assistants (A5/A6)
-pip install "custos[langchain]"        # + langchain-core for the LangChain adapter
-pip install "custos[dev]"              # + pytest/ruff/mypy for local dev
+pip install custos-middleware                     # runtime (jsonschema only)
+pip install "custos-middleware[yaml]"             # + PyYAML for Policy.from_yaml
+pip install "custos-middleware[llm]"              # + litellm for LLM-backed assistants (A5/A6)
+pip install "custos-middleware[langchain]"        # + langchain-core for the LangChain adapter
+pip install "custos-middleware[dev]"              # + pytest/ruff/mypy for local dev
 ```
 
 ## 5-line integration

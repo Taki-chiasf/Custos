@@ -19,7 +19,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { Gateway, Policy, sidecarAssistant, type Decision } from "@custos/core";
+import { Gateway, Policy, sidecarAssistant, type Decision } from "@taqiy/custos-core";
 import { GrpcSidecarTransport } from "../src/grpc_sidecar_transport.ts";
 
 interface SidecarInfo {

@@ -8,7 +8,7 @@ Prometheus registry.
 ## Install
 
 ```bash
-pip install "custos[telemetry]"   # adds opentelemetry-sdk + prometheus-client
+pip install "custos-middleware[telemetry]"   # adds opentelemetry-sdk + prometheus-client
 ```
 
 ## Wire

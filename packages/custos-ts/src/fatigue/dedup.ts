@@ -1,6 +1,6 @@
 // Fatigue dedup cache — IR_CONTRACT  ;  .
 
-// Per D17 the TS `@custos/core` ships the **deterministic subset**: A8
+// Per D17 the TS `@taqiy/custos-core` ships the **deterministic subset**: A8
 // batched summarization routes via the  gRPC sidecar, so there is no
 // `BatchWindow` in the in-process TS surface.
 

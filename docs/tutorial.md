@@ -12,8 +12,8 @@ only required for the TypeScript SDK + sidecar client (covered at the end).
 
 ```bash
 python -m venv .venv && . .venv/bin/activate
-pip install "custos[yaml]"          # runtime + PyYAML for Policy.from_yaml
-pip install "custos[dev]"           # pytest/ruff/mypy (for step 6)
+pip install "custos-middleware[yaml]"          # runtime + PyYAML for Policy.from_yaml
+pip install "custos-middleware[dev]"           # pytest/ruff/mypy (for step 6)
 ```
 
 Custos is **runtime-dep-free** beyond a JSON-schema validator (`jsonschema`,
@@ -178,7 +178,7 @@ For runtimes that cannot be wrapped in-process (e.g. an agent running in
 another language):
 
 ```bash
-pip install "custos[sidecar]"
+pip install "custos-middleware[sidecar]"
 custos sidecar --policy policy.yaml \
   --tls-cert server.pem --tls-key server.key --tls-ca clients-ca.pem \
   --bearer "${CUSTOS_BEARER}" \
@@ -189,14 +189,14 @@ custos sidecar --policy policy.yaml \
 mTLS is **mandatory** for v1.0 — the server refuses to start without
 `--tls-cert/--tls-key/--tls-ca` (a plaintext sidecar is a  violation).
 Bearer + `caller_id` + per-call `request_id` (nonce) are replay-guarded.
-The TypeScript SDK reaches the same gateway via the `@custos/grpc` package;
+The TypeScript SDK reaches the same gateway via the `@taqiy/custos-grpc` package;
 its `Gateway.decide` re-applies the policy locally so a tampered sidecar
 cannot smuggle an allow past the floor. See [Sidecar](sidecar.md).
 
 ## 9. Turn on telemetry — optional, default-off
 
 ```bash
-pip install "custos[telemetry]"
+pip install "custos-middleware[telemetry]"
 ```
 
 ```python
@@ -226,11 +226,11 @@ prompt-injection from args, phantom Slack approvers).
 ## 11. TypeScript quickstart (D17 deterministic subset)
 
 ```bash
-npm i @custos/core
+npm i @taqiy/custos-core
 ```
 
 ```typescript
-import { Gateway, Policy, RulePolicy, CLIResponder } from "@custos/core";
+import { Gateway, Policy, RulePolicy, CLIResponder } from "@taqiy/custos-core";
 
 const gw = new Gateway({
   policy: Policy.fromYamlFile("policy.yaml"),

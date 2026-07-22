@@ -1,4 +1,4 @@
-// Custos TypeScript SDK — `@custos/core`.
+// Custos TypeScript SDK — `@taqiy/custos-core`.
 
 // The deterministic subset of the Python `custos` package per IR_CONTRACT
 // - . LLM-backed assistants + out-of-band responders route
@@ -19,7 +19,7 @@ export * from "./audit/index.ts";
 export * from "./gateway.ts";
 
 // The SidecarTransport + sidecarAssistant factory live under
-// `@custos/core/assistants` (re-exported above via `assistants/index`).
+// `@taqiy/custos-core/assistants` (re-exported above via `assistants/index`).
 export type {
   SidecarTransport,
   DecideRequestWire,

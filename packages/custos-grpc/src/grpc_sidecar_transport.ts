@@ -1,5 +1,5 @@
 // `GrpcSidecarTransport` — the `SidecarTransport` implementation for
-// `@custos/core`'s `sidecarAssistant(transport)` factory .
+// `@taqiy/custos-core`'s `sidecarAssistant(transport)` factory .
 
 // Mirrors the Python `custos[sidecar]` extra at the OTHER end of the wire.
 // The TS transport carries caller attestation (mTLS material + bearer +
@@ -10,7 +10,7 @@
 // untrusted across the boundary.
 
 // Runtime deps: `@grpc/grpc-js` + `@grpc/proto-loader` (peer deps so the
-// operator pins the tested-minimum versions; `@custos/grpc` itself does
+// operator pins the tested-minimum versions; `@taqiy/custos-grpc` itself does
 // NOT bundle them — mirrors the Python `custos[sidecar]` extra gate
 // keeping the runtime dep set literal).
 
@@ -34,7 +34,7 @@ export interface GrpcSidecarTransportOptions {
   // Per-tenant rate-limit key (single-tenant guard rail for v1.0 per D19).
   tenantId?: string;
   // Optional verifier for the `verdict_signature` HMAC the sidecar emits.
-  // A failed verification in `@custos/core`'s `sidecarAssistant` is
+  // A failed verification in `@taqiy/custos-core`'s `sidecarAssistant` is
   // downgraded to local `DENY` per  — see IR_CONTRACT  + .
   // (Passed through to `sidecarAssistant({ verdictHmacKey })`; this
   // transport surfaces the bytes only, NOT the verification itself, to
@@ -45,9 +45,9 @@ export interface GrpcSidecarTransportOptions {
   protoPath?: string | null;
 }
 
-// The shape `@custos/core`'s `sidecarAssistant(transport)` factory expects
+// The shape `@taqiy/custos-core`'s `sidecarAssistant(transport)` factory expects
 // (re-declared here to avoid a hard dep at type-check time; the type
-// re-export at package index pulls it from `@custos/core`). The fields
+// re-export at package index pulls it from `@taqiy/custos-core`). The fields
 // mirror the proto3 `DecideRequest` / `DecideResponse` from
 // IR_CONTRACT . The transport translates from the snake_case
 // (`request_id`, `caller_id`, `tenant_id`) the caller supplies (matching
@@ -98,7 +98,7 @@ export interface SidecarDecideResponse {
 
 // Lazy module-level caches — kept OUTSIDE the function bodies so they
 // load once per process. The imports happen INSIDE the class methods so
-// a host that installs `@custos/grpc` but never instantiates a transport
+// a host that installs `@taqiy/custos-grpc` but never instantiates a transport
 // never pays the `@grpc/*` import cost (a server-only install pattern;
 // mirrors the Python "vendor imports inside the sidecar extra" rule).
 let _grpcPromise: Promise<typeof import("@grpc/grpc-js")> | null = null;
@@ -184,7 +184,7 @@ export class GrpcSidecarTransport implements SidecarTransportLike {
   async decide(req: SidecarDecideRequest): Promise<SidecarDecideResponse> {
     const client = await this._getClient();
     // Translate the snake_case DecideRequest surface the caller supplies
-    // (and that `@custos/core`'s AssistantOutput wire expects) to the
+    // (and that `@taqiy/custos-core`'s AssistantOutput wire expects) to the
     // camelCase form proto-loader expects on its JS surface (we load with
     // `keepCase: false`). The translation is at-the-boundary so callers
     // don't pay a naming-convention conversion tax for every RPC.
@@ -218,7 +218,7 @@ export class GrpcSidecarTransport implements SidecarTransportLike {
       reasoning?: string;
     };
     // Normalize the audit event to the IR_CONTRACT  wire shape (snake_case
-    // field names) so @custos/core's `verifyVerdictSignature` can read
+    // field names) so @taqiy/custos-core's `verifyVerdictSignature` can read
     // `ts_unix_ms` directly. proto-loader with `keepCase: false` returns
     // camelCase names — translate them.
     const auditWire: Record<string, unknown> | null = r.auditEvent
@@ -303,7 +303,7 @@ function _decisionFromProtoEnum(n: number | string): SidecarDecideResponse["deci
   // proto-loader with `enums: String` returns the enum NAME string
   // (UPPERCASE proto-defined names: `ALLOW_ONCE` etc.); IR_CONTRACT
   // pins the lowercase wire form. Normalize string inputs to lowercase
-  // so the @custos/core Decision enum matches exactly.
+  // so the @taqiy/custos-core Decision enum matches exactly.
   if (typeof n === "string") {
     const lower = n.toLowerCase();
     if (lower === "decision_unspecified") return "deny"; //  safe DENY
@@ -358,7 +358,7 @@ function _toWireCase(req: SidecarDecideRequest): Record<string, unknown> {
 
 // Translate a proto-loader AuditEvent dynamic object (camelCase fields
 // — `keepCase: false`) to the IR_CONTRACT  wire shape (snake_case).
-// We only normalize the top-level fields `@custos/core`'s
+// We only normalize the top-level fields `@taqiy/custos-core`'s
 // `verifyVerdictSignature` reads (`ts_unix_ms`) and a few other top-level
 // fields for caller observability; nested sub-objects are passed through
 // untouched (the caller does not need a fully-flat copy).

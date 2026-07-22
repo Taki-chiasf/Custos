@@ -6,7 +6,7 @@ contains the user-facing docs published alongside each release.
 ## Build
 
 ```bash
-pip install "custos[docs]"     # mkdocs-material
+pip install "custos-middleware[docs]"     # mkdocs-material
 mkdocs serve                   # http://127.0.0.1:8000
 mkdocs build                   # emits site/
 ```

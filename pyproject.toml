@@ -3,7 +3,7 @@ requires = ["hatchling>=1.18"]
 build-backend = "hatchling.build"
 
 [project]
-name = "custos"
+name = "custos-middleware"
 version = "1.0.0"
 description = "Drop-in permission middleware for AI agents."
 readme = "README.md"

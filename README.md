@@ -17,13 +17,13 @@ LLM agents.
 ## Install
 
 ```bash
-pip install "custos[yaml]"              # runtime + YAML policy loading (recommended)
-pip install custos                      # runtime only (programmatic policies, no YAML)
-pip install "custos[dev]"               # local development (pytest, ruff, mypy)
-pip install "custos[eval]"              # eval-harness parity stack (dev/test-only)
-pip install "custos[mcp]"               # MCP in-process adapter
-pip install "custos[openai-agents]"     # OpenAI Agents SDK adapter
-pip install "custos[anthropic]"         # Anthropic messages-API adapter
+pip install "custos-middleware[yaml]"              # runtime + YAML policy loading (recommended)
+pip install custos-middleware                      # runtime only (programmatic policies, no YAML)
+pip install "custos-middleware[dev]"               # local development (pytest, ruff, mypy)
+pip install "custos-middleware[eval]"              # eval-harness parity stack (dev/test-only)
+pip install "custos-middleware[mcp]"               # MCP in-process adapter
+pip install "custos-middleware[openai-agents]"     # OpenAI Agents SDK adapter
+pip install "custos-middleware[anthropic]"         # Anthropic messages-API adapter
 ```
 
 ### Extras

@@ -446,7 +446,7 @@ class AuditEvent:
     Defaults to ``"1.0"`` so v1.0rc1-era callers keep working without code
     changes. The hash-chained audit sink emits the envelope-level field at
     the same value; a contract-bump (any change to the wire shape) MUST
-    bump this field at both ends (Python ``custos`` + TS ``@custos/core``)."""
+    bump this field at both ends (Python ``custos`` + TS ``@taqiy/custos-core``)."""
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to a plain dict for JSONL/structured sinks ."""

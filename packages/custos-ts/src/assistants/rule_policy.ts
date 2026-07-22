@@ -2,7 +2,7 @@
 // low-risk read ops. Re-evaluates the invocation against an inner
 // `Policy` (the "rule table") and returns the inner verdict.
 
-// Per D17 the TS `@custos/core` ships A7 in-process; LLM-backed
+// Per D17 the TS `@taqiy/custos-core` ships A7 in-process; LLM-backed
 // assistants route via the sidecar.
 
 import type { Assistant } from "./base.ts";

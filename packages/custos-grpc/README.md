@@ -1,7 +1,7 @@
-# @custos/grpc
+# @taqiy/custos-grpc
 
 gRPC transport for the Custos sidecar — the `SidecarTransport`
-implementation consumed by [`@custos/core`](../custos-ts/)'s
+implementation consumed by [`@taqiy/custos-core`](../custos-ts/)'s
 `sidecarAssistant(transport)` factory.
 
 The Python [`custos`](https://github.com/Taki-chiasf/Custos) package's
@@ -17,22 +17,22 @@ boundary.
 ## Install
 
 ```bash
-npm install @custos/core @custos/grpc
+npm install @taqiy/custos-core @taqiy/custos-grpc
 # Plus the gRPC peer deps (operator pins the tested-minimum versions):
 npm install @grpc/grpc-js @grpc/proto-loader
 ```
 
 Runtime deps: `@grpc/grpc-js` + `@grpc/proto-loader` (peer deps, so the
-operator pins the tested-minimum versions; `@custos/grpc` itself does NOT
+operator pins the tested-minimum versions; `@taqiy/custos-grpc` itself does NOT
 bundle them — mirrors the Python `custos[sidecar]` extra gate keeping the
-runtime dep set literal). `@custos/core` is a `workspace:*` dependency;
+runtime dep set literal). `@taqiy/custos-core` is a `workspace:*` dependency;
 install it alongside.
 
 ## Quickstart
 
 ```ts
-import { sidecarAssistant } from "@custos/core";
-import { GrpcSidecarTransport } from "@custos/grpc";
+import { sidecarAssistant } from "@taqiy/custos-core";
+import { GrpcSidecarTransport } from "@taqiy/custos-grpc";
 import { readFileSync } from "node:fs";
 
 const transport = new GrpcSidecarTransport({
@@ -60,16 +60,16 @@ const riskAssessment = sidecarAssistant({
   verdictHmacKey: Buffer.from(process.env.CUSTOS_VERDICT_HMAC_KEY!, "utf-8"),
 });
 
-// Use it via the @custos/core Gateway:
+// Use it via the @taqiy/custos-core Gateway:
 //   new Gateway({ policy, assistant: riskAssessment, ... })
 ```
 
 ## What the transport does NOT do
 
-- The  floor-is-local rule is `@custos/core`'s job (apply a local policy
+- The  floor-is-local rule is `@taqiy/custos-core`'s job (apply a local policy
   `deny` even if the sidecar returns `allow*`). This package only carries
   the wire payload.
-- Verdict-signature VERIFICATION is also `@custos/core`'s job (inside
+- Verdict-signature VERIFICATION is also `@taqiy/custos-core`'s job (inside
   `sidecarAssistant`); this package surfaces the
   `verdict_signature` bytes and the operator-supplied key, but does not
   run the HMAC.
@@ -80,7 +80,7 @@ const riskAssessment = sidecarAssistant({
 ## Vendoring the proto
 
 The registered proto lives at `proto/custos_v1.proto` (vendored; shipped
-in the package `files` set so an npm install of `@custos/grpc` carries it).
+in the package `files` set so an npm install of `@taqiy/custos-grpc` carries it).
 A user can pass `protoPath` to override with a custom path.
 
 ## Verifying

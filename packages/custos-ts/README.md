@@ -1,4 +1,4 @@
-# @custos/core
+# @taqiy/custos-core
 
 Drop-in permission middleware for AI agents — TypeScript SDK (deterministic
 subset).
@@ -13,7 +13,7 @@ via the transport-injected `sidecarAssistant(transport)` factory.
 ## Install
 
 ```bash
-npm install @custos/core
+npm install @taqiy/custos-core
 ```
 
 Requires Node >= 20. Zero runtime dependencies; the only hard dep is the
@@ -26,7 +26,7 @@ import {
   Gateway, Policy,
   RulePolicyAssistant, AutoApproveAssistant,
   NoopResponder, FileAuditSink, InMemoryFatigueLayer,
-} from "@custos/core";
+} from "@taqiy/custos-core";
 
 const policy = Policy.fromSpec({
   rules: [
@@ -77,11 +77,11 @@ context-adaptive, **A10** learned-policy) + out-of-band responders
 sidecar:
 
 ```ts
-import { sidecarAssistant, Gateway, Policy } from "@custos/core";
+import { sidecarAssistant, Gateway, Policy } from "@taqiy/custos-core";
 
 const riskAssessment = sidecarAssistant({
   name: "risk-assessment",
-  transport: yourGrpcTransport,  // injected — @custos/core stays zero-dep
+  transport: yourGrpcTransport,  // injected — @taqiy/custos-core stays zero-dep
   callerId: "ts-agent",
 });
 
@@ -96,7 +96,7 @@ const gw = new Gateway({
 });
 ```
 
-The sibling `@custos/grpc` package (ships at) provides the real
+The sibling `@taqiy/custos-grpc` package (ships at) provides the real
 gRPC transport implementation. The ** floor-is-local rule**
 (IR_CONTRACT) is enforced by `Gateway.decide` on every sidecar
 verdict: if the local policy says `deny`, the sidecar's `allow*` is

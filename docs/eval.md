@@ -7,7 +7,7 @@ attack cells).
 ## Install
 
 ```bash
-pip install "custos[eval]"      # adds the Janus parity stack
+pip install "custos-middleware[eval]"      # adds the Janus parity stack
 # default backend is local Ollama (no API key, no cost)
 ```
 

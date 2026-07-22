@@ -1,10 +1,10 @@
 // `sidecarAssistant(transport)` — IR_CONTRACT  .
 
-// The TS `@custos/core` ships A1/A2/A7/A11 in-process per D17; LLM-backed
+// The TS `@taqiy/custos-core` ships A1/A2/A7/A11 in-process per D17; LLM-backed
 // A3/A4/A5/A6/A9/A10 are reachable via the  gRPC sidecar, which hosts
-// the full Python assistant stack server-side. `@custos/core` stays
+// the full Python assistant stack server-side. `@taqiy/custos-core` stays
 // zero-dep (-equivalent) by NOT pulling `@grpc/grpc-js`; the
-// transport is injected. The sibling `@custos/grpc` package (ships at
+// transport is injected. The sibling `@taqiy/custos-grpc` package (ships at
 //) provides the real gRPC transport. A user can also plug in their
 // own transport (test, REST-bridge, in-memory loopback).
 
@@ -144,7 +144,7 @@ function clamp01(n: number): number {
 }
 
 // HMAC-SHA256 over `decision|request_id|ts_unix_ms|risk_score` (IR_CONTRACT).
-// Lazy-import `node:crypto` to keep `@custos/core` importable without
+// Lazy-import `node:crypto` to keep `@taqiy/custos-core` importable without
 // bundling when the user opts out of verdict signing. The `request_id`
 // is provided by the caller because the DecideResponse does not echo it
 // back; the Python sidecar signed with the same value (see

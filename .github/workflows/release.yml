@@ -1,0 +1,197 @@
+name: Release
+
+# Automated publish pipeline.
+#
+# Before the first release:
+# 1. PyPI trusted publishing:
+#    - Create a "pypi" GitHub Environment (no reviewers needed).
+#    - Register the project on PyPI → Settings → Trusted Publishers:
+#      Owner: Taki-chiasf, Repository: Custos, Workflow: release.yml
+# 2. npm:
+#    - Create an "npm" GitHub Environment.
+#    - Add a secret NPM_TOKEN (npm access token with publish permission).
+#    - Enable provenance in npm package settings.
+# 3. Tag the release commit: git tag -s v1.0.0 -m "v1.0.0" && git push origin v1.0.0
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-python:
+    name: Build Python sdist + wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build
+      - name: Build sdist + wheel
+        run: python -m build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-dist
+          path: dist/
+          if-no-files-found: error
+
+  build-ts:
+    name: Build TypeScript packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: packages/custos-ts/package-lock.json
+      - name: Install + build @taqiy/custos-core
+        run: |
+          cd packages/custos-ts
+          npm ci
+          npm run build
+      - name: Pack @taqiy/custos-core
+        run: |
+          cd packages/custos-ts
+          npm pack
+      - name: Install + build @taqiy/custos-grpc
+        run: |
+          cd packages/custos-grpc
+          npm install ../custos-ts/taqiy-custos-core-1.0.0.tgz
+          npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ts-dist
+          path: |
+            packages/custos-ts/dist/
+            packages/custos-grpc/dist/
+          if-no-files-found: error
+
+  github-release:
+    name: Create GitHub Release
+    needs: [build-python, build-ts]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-dist
+          path: dist/
+      - uses: actions/download-artifact@v4
+        with:
+          name: ts-dist
+          path: packages-dist/
+      - name: Prepare SBOM assets
+        run: |
+          mkdir -p release-assets
+          cp dist/*.whl dist/*.tar.gz release-assets/
+          cp sbom/*.json release-assets/ 2>/dev/null || true
+      - name: Generate release notes
+        id: notes
+        run: |
+          export VERSION="${GITHUB_REF#refs/tags/v}"
+          cat > /tmp/notes.py << 'EOF'
+          import re, os
+          version = os.environ['VERSION']
+          with open('CHANGELOG.md') as f:
+              changelog = f.read()
+          pattern = r'## \[' + re.escape(version) + r'\][^\n]*\n(.*?)(?=\n## \[|\Z)'
+          m = re.search(pattern, changelog, re.DOTALL)
+          if m:
+              print(m.group(0).strip())
+          else:
+              print('v' + version)
+          EOF
+          python3 /tmp/notes.py > /tmp/release_notes.md
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          cat /tmp/release_notes.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: v${{ github.ref_name }}
+          body: ${{ steps.notes.outputs.body }}
+          files: |
+            release-assets/*
+          fail_on_unmatched_files: false
+          generate_release_notes: false
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: [build-python, github-release]
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verbose: true
+          skip-existing: true
+
+  publish-npm-core:
+    name: Publish @taqiy/custos-core to npm
+    needs: [build-ts, github-release]
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: "https://registry.npmjs.org"
+      - uses: actions/download-artifact@v4
+        with:
+          name: ts-dist
+      - name: Publish @taqiy/custos-core
+        run: |
+          cd packages/custos-ts
+          npm publish --provenance --access public --ignore-scripts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-npm-grpc:
+    name: Publish @taqiy/custos-grpc to npm
+    needs: [build-ts, publish-npm-core]
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: "https://registry.npmjs.org"
+      - uses: actions/download-artifact@v4
+        with:
+          name: ts-dist
+      - name: Publish @taqiy/custos-grpc
+        run: |
+          cd packages/custos-grpc
+          npm publish --provenance --access public --ignore-scripts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

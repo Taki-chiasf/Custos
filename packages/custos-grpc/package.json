@@ -1,7 +1,7 @@
 {
-  "name": "@custos/grpc",
-  "version": "1.0.0-rc1.0",
-  "description": "gRPC transport for the Custos sidecar - the SidecarTransport implementation consumed by @custos/core's sidecarAssistant(transport) factory.",
+  "name": "@taqiy/custos-grpc",
+  "version": "1.0.0",
+  "description": "gRPC transport for the Custos sidecar - the SidecarTransport implementation consumed by @taqiy/custos-core's sidecarAssistant(transport) factory.",
   "license": "Apache-2.0",
   "author": "Custos contributors",
   "keywords": ["custos", "grpc", "sidecar", "transport", "permissions", "ai", "agents"],
@@ -39,7 +39,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@custos/core": "file:../custos-ts"
+    "@taqiy/custos-core": "^1.0.0"
   },
   "peerDependencies": {
     "@grpc/grpc-js": "^1.10",

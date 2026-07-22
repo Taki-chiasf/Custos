@@ -24,9 +24,9 @@ All share the same interface.
 ## Installing the LLM-backed ones
 
 ```bash
-pip install "custos[llm]"            # adds LiteLLM; A3–A6 + A9 need it
+pip install "custos-middleware[llm]"            # adds LiteLLM; A3–A6 + A9 need it
 # or use the local Ollama backend in the eval harness (no API key):
-pip install "custos[eval]"
+pip install "custos-middleware[eval]"
 ```
 
 A7/A10/A11 are in-process and require no LLM. A1/A2 are pure Python.

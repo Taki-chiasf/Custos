@@ -2,7 +2,7 @@
 
 **Status:** v1.0 — locked at   (2026-07-20). Closes  Q12.
 **Scope:** the deterministic subset of Custos that MUST behave identically
-across the Python `custos` package and the TypeScript `@custos/core`
+across the Python `custos` package and the TypeScript `@taqiy/custos-core`
 package , including the  sidecar gRPC schema that carries
 LLM-backed assistant verdicts back to a TS agent.
 
@@ -383,7 +383,7 @@ client-side before any cross-boundary send — see .)
 ## 9. Sidecar gRPC schema (deliverable; pinned here)
 
 The  sidecar exposes `Gateway.decide` over gRPC. The schema is
-pinned in this contract so the TS `@custos/core` SDK can codegen
+pinned in this contract so the TS `@taqiy/custos-core` SDK can codegen
 against it at  — the sidecar ships at  but the IR is locked
 here.
 

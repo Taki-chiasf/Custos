@@ -1,6 +1,6 @@
-// `@custos/grpc` — gRPC transport for the Custos sidecar .
+// `@taqiy/custos-grpc` — gRPC transport for the Custos sidecar .
 
-// The real `SidecarTransport` implementation consumed by `@custos/core`'s
+// The real `SidecarTransport` implementation consumed by `@taqiy/custos-core`'s
 // `sidecarAssistant(transport)` factory. Wire-shape +  replay-guard
 // + mTLS envelope pinned in `IR_CONTRACT.md` -.
 

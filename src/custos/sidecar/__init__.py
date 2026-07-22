@@ -7,9 +7,9 @@ guard rail for v1.0, D19). The ``custos[sidecar]`` extra pins ``grpcio``
 + ``protobuf`` (tested-minimum); the runtime dep set stays
 ``jsonschema``-literal .
 
-The TS :class:`SidecarTransport` conforming to ``@custos/core``'s
+The TS :class:`SidecarTransport` conforming to ``@taqiy/custos-core``'s
 ``sidecarAssistant(transport)`` factory is shipped as the sibling
-``@custos/grpc`` package ; the  floor-is-local rule
+``@taqiy/custos-grpc`` package ; the  floor-is-local rule
 (IR_CONTRACT) is enforced by ``Gateway.decide`` on the caller
 side -- sidecar output is untrusted across the boundary.
 """

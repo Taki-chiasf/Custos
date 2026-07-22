@@ -13,14 +13,14 @@ new TS-vendored code and confirms the  findings still hold.
 | Component | Path | License | Notes |
 |---|---|---|---|
 | Python runtime | `src/custos/` | Apache-2.0 | Authoritative LICENSE at repo root. |
-| TypeScript SDK `@custos/core` | `packages/custos-ts/` | Apache-2.0 | Per-package `LICENSE` file. `"license": "Apache-2.0"` in `package.json`. Zero runtime deps (-equivalent). |
-| gRPC sidecar client `@custos/grpc` | `packages/custos-grpc/` | Apache-2.0 | Per-package `LICENSE` file. `"license": "Apache-2.0"` in `package.json`. |
+| TypeScript SDK `@taqiy/custos-core` | `packages/custos-ts/` | Apache-2.0 | Per-package `LICENSE` file. `"license": "Apache-2.0"` in `package.json`. Zero runtime deps (-equivalent). |
+| gRPC sidecar client `@taqiy/custos-grpc` | `packages/custos-grpc/` | Apache-2.0 | Per-package `LICENSE` file. `"license": "Apache-2.0"` in `package.json`. |
 | gRPC schema | `src/custos/sidecar/custos_v1.proto`, `packages/custos-grpc/proto/custos_v1.proto` | Apache-2.0 | Authored by us. `package custos.v1`. IR_CONTRACT  is the canonical spec; both copies of the `.proto` are kept byte-equal intentionally. |
 
 ## 2. Optional extras (Python)
 
 All optional extras  carry their own upstream licenses;
-each is gated behind `pip install custos[<extra>]` so a runtime-only
+each is gated behind `pip install custos-middleware[<extra>]` so a runtime-only
 install never pulls them.
 
 | Extra | Upstream license | `_`-filename rule? |
@@ -46,8 +46,8 @@ All upstream licenses are Apache-2.0-compatible (the project license).
 
 | Package | Upstream license | PepDep shape |
 |---|---|---|
-| `@custos/grpc` `@grpc/grpc-js` (peer) | Apache-2.0 | peer dep — operator pins the tested-minimum; the `@custos/grpc` tarball does NOT bundle the dep |
-| `@custos/grpc` `@grpc/proto-loader` (peer) | Apache-2.0 | peer dep — same |
+| `@taqiy/custos-grpc` `@grpc/grpc-js` (peer) | Apache-2.0 | peer dep — operator pins the tested-minimum; the `@taqiy/custos-grpc` tarball does NOT bundle the dep |
+| `@taqiy/custos-grpc` `@grpc/proto-loader` (peer) | Apache-2.0 | peer dep — same |
 
 `node_modules/` is gitignored and excluded from the `"files"` block in
 each `package.json` so the published npm tarball ships ONLY our source
@@ -117,7 +117,7 @@ type-checkable).
 - **No Janus source vendored.** Janus remains a design reference only;
   the A1–A6 assistants + the harness are clean-room re-implementations.
 - **No third-party code vendored** into the published tarballs. The TS
-  `@custos/grpc` peer-deps `@grpc/grpc-js` and `@grpc/proto-loader` are
+  `@taqiy/custos-grpc` peer-deps `@grpc/grpc-js` and `@grpc/proto-loader` are
   the operator's install responsibility (the tested-minimum is pinned
   in the package.json `peerDependencies`); the npm tarball excludes
   `node_modules/`.

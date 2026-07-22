@@ -3,7 +3,7 @@
 This document is the standalone threat model for Custos referenced by sec 15. It enumerates the actors, trust boundaries, assets, and a STRIDE
 table that maps every security bullet in sec 15 to a threat + mitigation.
 
-Scope: the Custos in-process runtime (Python `custos` and TS `@custos/core`),
+Scope: the Custos in-process runtime (Python `custos` and TS `@taqiy/custos-core`),
 the  gRPC sidecar (`custos[sidecar]`), and the  telemetry surface
 (`custos[telemetry]`, default-off). The  adapters (AutoGen, Google ADK,
 LlamaIndex) are droppable integration surfaces; their threat entry appears in
@@ -130,6 +130,6 @@ notes, kept in sync):
   v1.0rc1 ; M8 reported as "zero false-allows AND zero false-denies").
 - Sidecar auth envelope: `src/custos/sidecar/server.py:GatewayServicer` +
   `ReplayCache` + `TenantRateLimiter` + `verdict_signature`; TS surface in
-  `packages/custos-ts/` `@custos/grpc` `GrpcSidecarTransport`.
+  `packages/custos-ts/` `@taqiy/custos-grpc` `GrpcSidecarTransport`.
 - Telemetry opt-in : `src/custos/telemetry/` behind `custos[telemetry]`,
   default-off.

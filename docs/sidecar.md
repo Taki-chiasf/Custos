@@ -10,7 +10,7 @@ for replay detection, per-tenant rate limit.
 ## Install
 
 ```bash
-pip install "custos[sidecar]"     # adds grpcio + protobuf (tested-minimum)
+pip install "custos-middleware[sidecar]"     # adds grpcio + protobuf (tested-minimum)
 ```
 
  unchanged — the runtime dep set stays `jsonschema`-literal; the
@@ -39,13 +39,13 @@ bearer + nonce are post-TLS primitives, not transport primitives).
 | Bearer (`--bearer`) | caller identity; empty allowlist = accept any non-empty bearer; empty bearer denied unless caller mTLS principal is in `anonymous_mtls_allowlist` | UNAUTHENTICATED |
 | `caller_id` + `request_id` | replay detection via in-process `ReplayCache` (rejects replayed AND missing `request_id`) | DENY + audit anomaly |
 | Tenant rate limit | sliding window per-tenant per-minute cap (single-tenant guard rail per D19 — NOT a multi-tenant isolation boundary; Redis-backed isolation is  / v1.1) | rate-limited DENY + audit alert |
-| `verdict_signature = HMAC-SHA256(decision\|request_id\|ts_unix_ms\|risk_score)` | TS `@custos/grpc` client verifies the verdict was emitted by THIS sidecar for THIS call | client downgrades to safe `deny` on mismatch |
+| `verdict_signature = HMAC-SHA256(decision\|request_id\|ts_unix_ms\|risk_score)` | TS `@taqiy/custos-grpc` client verifies the verdict was emitted by THIS sidecar for THIS call | client downgrades to safe `deny` on mismatch |
 
 ## TS client
 
 ```typescript
-import { GrpcSidecarTransport, sidecarAssistant } from "@custos/grpc";
-import { Gateway, Policy } from "@custos/core";
+import { GrpcSidecarTransport, sidecarAssistant } from "@taqiy/custos-grpc";
+import { Gateway, Policy } from "@taqiy/custos-core";
 
 const transport = new GrpcSidecarTransport({
   address: "my-sidecar.internal:7443",
