@@ -40,13 +40,13 @@ dev = [
     "ruff>=0.5",
     "mypy>=1.10",
     "types-PyYAML",
-    "PyYAML>=6.0",
+    "PyYAML>=6.0.3",
 ]
 # YAML policy loading (`Policy.from_yaml`). Optional so the runtime
 # stays dep-free beyond jsonschema ; programmatic `Policy.from_spec`
 # works without it.
 yaml = [
-    "PyYAML>=6.0",
+    "PyYAML>=6.0.3",
 ]
 # LLM-backed assistants (A5/A6). Optional so the runtime stays
 # dep-free ; the LiteLLM adapter lives in custos.integrations.
