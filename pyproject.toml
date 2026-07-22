@@ -81,7 +81,7 @@ anthropic = [
 # dep set stays jsonschema-literal; this extra is the gatekeeping surface so
 # a runtime-only install never pulls gRPC.
 sidecar = [
-    "grpcio>=1.66,<2",
+    "grpcio>=1.82.1,<2",
     "protobuf>=5.27,<8",
 ]
 # AutoGen adapter (carry-forward). Targets the
