@@ -169,7 +169,7 @@ jobs:
       - name: Publish @taqiy/custos-core
         run: |
           cd packages/custos-ts
-          npm publish --provenance --access public --ignore-scripts
+          npm publish --access public --ignore-scripts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -192,6 +192,6 @@ jobs:
       - name: Publish @taqiy/custos-grpc
         run: |
           cd packages/custos-grpc
-          npm publish --provenance --access public --ignore-scripts
+          npm publish --access public --ignore-scripts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
