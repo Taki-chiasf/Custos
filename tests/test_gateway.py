@@ -474,7 +474,7 @@ class _ExfilAssistant:
 
 
 def test_local_only_refuses_to_register_exfiltrating_assistant() -> None:
-    """ air-gapped profile: local_only=True refuses exfiltrates_args=True."""
+    """air-gapped profile: local_only=True refuses exfiltrates_args=True."""
     import pytest
 
     from custos.gateway import Gateway

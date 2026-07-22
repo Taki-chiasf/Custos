@@ -108,6 +108,6 @@ def test_audit_event_to_dict_round_trips_decision_enum() -> None:
 
 
 def test_audit_event_to_dict_includes_schema_version_forward_field() -> None:
-    """  : `to_dict` emits `schema_version: "1.0"`."""
+    """: `to_dict` emits `schema_version: "1.0"`."""
     d = _event().to_dict()
     assert d["schema_version"] == "1.0"

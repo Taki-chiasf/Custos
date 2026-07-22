@@ -36,12 +36,12 @@ updates:
           - "openai-agents"
           - "anthropic"
     ignore:
-      #  runtime dep set is locked to jsonschema only. Do not widen it
+      # The runtime dep set is locked to jsonschema only. Do not widen it
       # via a stray transitive pin bump.
       - dependency-name: "jsonschema"
-        update-types: ["major"]
+        update-types: ["version-update:semver-major"]
       # eval-harness parity stack is pinned to Janus versions for parity
-      # reproduction. Bump only in lockstep with a parity re-run .
+      # reproduction. Bump only in lockstep with a parity re-run.
       - dependency-name: "google-adk"
       - dependency-name: "mcp[cli]"
 

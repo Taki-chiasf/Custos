@@ -183,9 +183,9 @@ class Policy:
     def matched_rule(self, inv: Invocation) -> Rule | None:
         """First-match-wins lookup returning the matched :class:`Rule` .
 
-        Mirrors :meth:`evaluate` so callers (e.g. ``custos audit replay``,
-) can surface *which* rule fired, not just the outcome. Returns
-        ``None`` when the default action applied (no explicit rule matched).
+                Mirrors :meth:`evaluate` so callers (e.g. ``custos audit replay``,
+        ) can surface *which* rule fired, not just the outcome. Returns
+                ``None`` when the default action applied (no explicit rule matched).
         """
         env = inv.context.extra.get("env") if inv.context.extra else None
         env_str = env if isinstance(env, str) else None

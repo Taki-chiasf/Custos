@@ -248,7 +248,6 @@ _RISK_ASSESS_DENY = {
             # is the HIGHEST strictness for that invocation. This is correct
             # ONLY because the policy floor wasn't deny — it was "assist"
             # (delegate to assistant).
-            
             # The adversarial cells that test the  floor with LLM injection
             # use the EXPLICIT-DENY policy below (`_RISK_ASSESS_EXPLICIT_DENY`)
             # so the gateway NEVER invokes the assistant for those calls.

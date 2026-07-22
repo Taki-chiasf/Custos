@@ -1,4 +1,4 @@
-""" sidecar auth-envelope tests (+).
+"""sidecar auth-envelope tests (+).
 
 Drives the gRPC servicer in-process (a `grpc.server` bound to an
 in-memory port + a real client stub) so the  paths are exercised

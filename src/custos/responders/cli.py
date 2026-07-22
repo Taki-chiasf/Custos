@@ -79,15 +79,15 @@ class CLIResponder:
     def _parse_answer(self, answer: str) -> PromptResponse:
         """Map a raw input line to a :class:`PromptResponse` (F1, H12).
 
-        The configured ``approver`` identity is attested on every response (H12,
-). Mapping (case matters for the allow-all variant, per F1):
-          y/yes  -> ALLOW
-          n/no   -> DENY
-          a      -> ALLOW_ONCE
-          A      -> ALLOW + ttl
-          l      -> DEFER
-          d      -> details (handled in prompt loop; fallback: DENY)
-          other  -> DENY
+                The configured ``approver`` identity is attested on every response (H12,
+        ). Mapping (case matters for the allow-all variant, per F1):
+                  y/yes  -> ALLOW
+                  n/no   -> DENY
+                  a      -> ALLOW_ONCE
+                  A      -> ALLOW + ttl
+                  l      -> DEFER
+                  d      -> details (handled in prompt loop; fallback: DENY)
+                  other  -> DENY
         """
         stripped = answer.strip()
         if not stripped:
