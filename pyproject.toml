@@ -109,7 +109,7 @@ telemetry = [
 # Docs site . Docs-only; not a runtime dependency of the
 # Custos Python or TS package.
 docs = [
-    "mkdocs-material>=9.5",
+    "mkdocs-material>=9.7.7",
 ]
 eval = [
     # Parity-reproduction stack for the eval harness only .
