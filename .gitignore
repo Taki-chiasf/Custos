@@ -1,0 +1,51 @@
+# Byte-compiled / optimized / dynamic files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+wheels/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Test / coverage / type-check caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local audit logs
+*.jsonl
+!tests/**/*.jsonl
+audit.jsonl
+
+# Eval-harness run artifacts (custos eval output dirs)
+runs/
+*.parity_report.json
+report.html
+report.json
+adversarial_report.json

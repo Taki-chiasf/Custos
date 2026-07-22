@@ -1,0 +1,82 @@
+# Custos docs site configuration .
+
+# mkdocs + mkdocs-material. Docs-only deliverable: no runtime dependency of
+# the Custos Python or TS package. Install via the `custos[docs]` extra:
+
+#   pip install -e '.[docs]'
+#   mkdocs serve
+
+# Build: `mkdocs build`. Output: `site/` (gitignored).
+
+site_name: Custos
+site_description: Drop-in permission middleware for AI agents.
+site_url: https://github.com/Taki-chiasf/Custos
+repo_url: https://github.com/Taki-chiasf/Custos
+repo_name: Taki-chiasf/Custos
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.indexes
+    - navigation.top
+    - toc.follow
+    - content.code.copy
+    - content.code.annotate
+    - content.action.edit
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonitions
+  - codehilite:
+      guess_lang: false
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - Onboarding tutorial: tutorial.md
+  - Policy schema: policy.md
+  - Policy cookbook:
+      - cookbook/index.md
+      - Read-only auto-allow: cookbook/read-allow.md
+      - Network-egress prompt: cookbook/network-egress-prompt.md
+      - Payment quorum (separation of duties): cookbook/payment-quorum.md
+      - Learned-policy opt-out: cookbook/learned-policy-opt-out.md
+      - Air-gapped profile: cookbook/air-gapped-profile.md
+  - Assistants: assistants.md
+  - Responders: responders.md
+  - Audit: audit.md
+  - Eval harness: eval.md
+  - Telemetry (opt-in): telemetry.md
+  - Adapters: adapters.md
+  - Sidecar (gRPC): sidecar.md
+  - Threat model: THREAT_MODEL.md
+  - License audit: LICENSE_AUDIT.md
+  - IR contract: ../IR_CONTRACT.md
+  - Changelog: ../CHANGELOG.md
+  - Contributing: ../CONTRIBUTING.md
+  - Security policy: ../SECURITY.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Taki-chiasf/Custos
