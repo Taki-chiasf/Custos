@@ -1,0 +1,27 @@
+# Example policy . Not the canonical copy - kept here for the
+# policy engine work. Canonical schema lives in custos/policy/schema.py.
+
+version: 1
+default: deny
+
+overlays:
+  - id: base
+    rules:
+      - match: { tool: "fs.read*", side_effects: [read] }
+        action: allow_and_audit
+      - match: { tool: "fs.write*", side_effects: [write] }
+        action: assist:risk-assessment
+      - match: { tool: "shell.*", risk_tier: [4, 5] }
+        action: prompt
+      - match: { tool: "payment.*" }
+        action: prompt
+        options: [allow_once, deny]   # no standing allows for payments
+      - match: { tool: "email.send", args: { recipient_domain: { in: [trusted.org] } } }
+        action: allow_and_audit
+  - id: fatigue
+    rules:
+      - match: { any: true }
+        action: assist:summarize-batch
+        batching:
+          window_ms: 2000
+          max_per_minute: 10

@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "release/**"]
+  pull_request:
+    branches: [main]
+  # Allow manual runs for release-branch verification.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint-type:
+    name: ruff + mypy --strict
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"  # lint/typecheck pin; matrix covers runtime
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+      - name: ruff
+        run: ruff check src tests
+      - name: ruff format check
+        run: ruff format --check src tests
+      - name: mypy --strict
+        run: mypy --strict src/custos
+
+  test:
+    name: pytest (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev,telemetry]'
+      - name: pytest
+        # Coverage gate is enforced on every matrix row; the XML report is
+        # uploaded from the 3.12 row for downstream tooling. The pre-existing
+        # Python 3.13 stdin-capture failure on
+        # `tests/eval/test_assistants.py::test_a3_constitution_without_key_raises_clearly`
+        # was fixed in   by setting a user message before the
+        # denial call so the LLM intent-check branch fires under
+        # `MissingLLMClient` (raising `NoApiKeyError` clearly instead of
+        # falling through to the interactive `_confirm` path that blocked
+        # pytest's stdin capture).
+        run: |
+          pytest \
+            --cov=custos --cov-report=xml --cov-report=term-missing --cov-fail-under=90
+      - name: Upload coverage artifact
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: ignore
+
+  pip-audit:
+    name: pip-audit (High CVE gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install pip-audit and the project + all extras
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pip-audit
+          # Install every optional extra so transitive CVEs are surfaced.
+          python -m pip install -e '.[dev,yaml,llm,langchain,mcp,openai-agents,anthropic,eval]'
+      - name: pip-audit (runtime + extras)
+        # Fails non-zero on any vulnerability in the installed dependency
+        # graph (runtime + every optional extra). Use `--ignore-vuln` only
+        # with a tracking issue + mitigation date recorded
+        # inline. `--strict` stays off in CI so a flaky vuln-db cache miss
+        # does not block unrelated PRs; re-run locally with `--strict`
+        # before tagging the v1.0.0 GA cut .
+        # Starlette 0.52.1 has 7 known CVEs (PYSEC-2026-161, 248, 249, 2281, 2280)
+        # but google-adk 1.x requires starlette<1.0.0, preventing upgrade to the
+        # patched v1.x line. Re-evaluate when google-adk 2.x drops the <1.0.0
+        # constraint or backports patches to 0.x.
+        run: pip-audit --desc --ignore-vuln PYSEC-2026-161 --ignore-vuln PYSEC-2026-248 --ignore-vuln PYSEC-2026-249 --ignore-vuln PYSEC-2026-2281 --ignore-vuln PYSEC-2026-2280

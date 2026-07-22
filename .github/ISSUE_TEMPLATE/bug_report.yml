@@ -1,0 +1,89 @@
+name: Bug report
+description: Report a defect in Custos behavior or docs.
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Security vulnerabilities
+        MUST NOT be reported here — see `SECURITY.md`.
+  - type: input
+    id: version
+    attributes:
+      label: Custos version
+      placeholder: "1.0.0rc1 (output of `custos --version` or `pip show custos`)"
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "3.10 / 3.11 / 3.12 / 3.13"
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Optional extras installed
+      placeholder: "e.g. yaml,llm,langchain,mcp,openai-agents,anthropic,eval"
+    validations:
+      required: false
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Affected area (if known)
+      options:
+        - Core: gateway / pipeline / policy
+        - Assistants (A1-A11)
+        - Responders (CLI / web / webhook / Slack / multi-approver)
+        - Fatigue layer
+        - Audit
+        - Eval harness (custos eval)
+        - Integrations / adapters
+        - AsyncGateway / async Protocols
+        - CLI (custos)
+        - Docs / quickstart / cookbook / threat model
+        - Release hygiene (CI / packaging / SBOM)
+    validations:
+      required: false
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A minimal reproduction is ideal — a copy-paste-run snippet that triggers the defect. Please include the policy file / rule, the invocation, and the subject context.
+      placeholder: |
+        Policy:
+        ```yaml
+        version: 1
+        default: deny
+        ...
+        ```
+
+        Code:
+        ```python
+        from custos import Gateway
+        ...
+        ```
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output / audit event
+      description: Paste the audit JSONL line(s) if available (redact PII first).
+      render: shell
+    validations:
+      required: false
+  - type: checkboxes
+    id: floor
+    attributes:
+      label: Security invariant check
+      options:
+        - label: I have confirmed this is NOT a vulnerability disclosure (those go through `SECURITY.md`).
+          required: true

@@ -1,0 +1,33 @@
+name: Feature request
+description: Propose a new feature or improvement for Custos.
+labels: ["feature", "triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      placeholder: "As a [dev / platform maintainer / security lead], I need ..."
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: The user-facing surface (API / CLI / policy schema / docs) and a sketch of the behavior.
+    validations:
+      required: true
+  - type: checkboxes
+    id: security
+    attributes:
+      label: Security considerations
+      options:
+        - label: This does not relax the policy floor (deny is final).
+        - label: This does not weaken persisted-rule narrowness.
+        - label: This does not create a replay, redaction, or exfiltration gap.
+        - label: This does not bypass responder exception safety.
+  - type: checkboxes
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      options:
+        - label: I considered reusing an existing assistant / responder / policy rule instead of adding new surface.
