@@ -1,0 +1,124 @@
+syntax = "proto3";
+
+package custos.v1;
+
+// Custos gateway sidecar service - exposes the in-process
+// `Gateway.decide` over gRPC. The  floor is enforced at the sidecar;
+// the caller (TS or another Python process) re-applies the  floor
+// LOCALLY on the returned verdict - assistant output is untrusted across
+// the boundary.
+
+// Authentication:
+//   - mTLS at the transport layer (caller presents a client cert signed
+//     by the operator's CA; the server validates against --tls-ca).
+//   - Bearer token (or delegated OIDC) at the application layer (callers
+//     without a bearer are rejected UNLESS they are the mTLS principal
+//     configured as an anonymous-call allowlist member).
+//   - Per-call `request_id` / nonce; a replayed nonce -> DENY.
+//   - Per-tenant in-memory rate-limit (single-tenant guard rail for
+//     v1.0 per decision D19 - NOT a multi-tenant isolation boundary).
+
+// Pinned in `IR_CONTRACT.md`  at  .
+import "google/protobuf/struct.proto";
+
+service CustosGateway {
+  // Decide runs the full 8-step  pipeline server-side and returns
+  // the serializable AuditEvent + the final Decision. The  floor is
+  // re-applied by the caller locally on the returned verdict.
+  rpc Decide(DecideRequest) returns (DecideResponse);
+}
+
+message DecideRequest {
+  Invocation invocation = 1;
+  // mTLS-attested caller identity (cross-checked against the OIDC bearer
+  // below by the server). Set by the server from the gRPC peer principal.
+  string caller_id = 2;
+  // OIDC bearer (or local signed-token); empty when the caller is the
+  // mTLS principal only.
+  string bearer = 3;
+  // Per-call request_id / nonce; replayed nonce -> DENY (replay guard).
+  string request_id = 4;
+  // Per-tenant rate-limit key (single-tenant guard rail for v1.0 per D19).
+  // Empty for the global default tenant.
+  string tenant_id = 5;
+}
+
+message Invocation {
+  string tool = 1;
+  // Unredacted args; the sidecar redacts before building an AuditEvent.
+  google.protobuf.Struct args = 2;
+  SubjectContext context = 3;
+  ToolDescriptor descriptor = 4;
+  string request_id = 5;
+}
+
+message SubjectContext {
+  string user_id = 1;
+  string goal_id = 2;
+  string task_id = 3;
+  repeated string delegation_chain = 4;
+  int32 session_ttl = 5;
+  google.protobuf.Struct extra = 6;
+}
+
+message ToolDescriptor {
+  string name = 1;
+  int32 risk_tier = 2;
+  bool reversible = 3;
+  repeated string side_effects = 4;
+  google.protobuf.Struct schema = 5;
+}
+
+message DecideResponse {
+  Decision decision = 1;
+  // Audit event the caller SHOULD persist locally (the sidecar ALSO
+  // persists its own copy). The  floor is enforced at BOTH ends.
+  AuditEvent audit_event = 2;
+  // Server-side latency for SLO observability (excludes network).
+  int32 server_latency_ms = 3;
+  // Sidecar-assigned expiry of the verdict the caller SHOULD honour
+  // when caching the decision locally (monotonic to the caller's
+  // process, NOT the sidecar's -).
+  int64 verdict_cache_ms = 4;
+  // Verdict chain verifiable by the caller: the sidecar's HMAC over
+  // (decision, request_id, ts_unix_ms, risk_score) -  replay guard
+  // at the boundary. Empty when the caller is the sidecar's own mTLS
+  // principal AND the operator disabled verdict signing.
+  bytes verdict_signature = 5;
+  // Echo of the call's risk_score for immediate caller-side observability
+  // (also lives on the audit event). The caller MUST NOT trust this
+  // without verifying the verdict_signature when signed mode is enabled.
+  double risk_score = 6;
+  // Echo of the assistant reasoning; the caller MUST NOT trust this
+  // without verifying the verdict_signature when signed mode is enabled.
+  string reasoning = 7;
+}
+
+enum Decision {
+  DECISION_UNSPECIFIED = 0;
+  ALLOW = 1;
+  ALLOW_ONCE = 2;
+  ALLOW_AND_PERSIST = 3;
+  DENY = 4;
+  PROMPT = 5;
+  DEFER = 6;
+}
+
+message AuditEvent {
+  int64 ts_unix_ms = 1;
+  Invocation invocation = 2;
+  Decision decision = 3;
+  string policy_match = 4;
+  string assistant = 5;
+  double risk_score = 6;
+  string reasoning = 7;
+  string responder = 8;
+  int32 latency_ms = 9;
+  SubjectContext subject = 10;
+  string approver = 11;
+  string quorum_state = 12;
+  // Forward : tamper-evidence schema version. The
+  // sidecar emits "1.0" from day one; the in-process Python impl adds
+  // it at . Optional in the wire shape - empty == "unversioned".
+  string schema_version = 13;
+}
