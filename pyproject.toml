@@ -51,7 +51,7 @@ yaml = [
 # LLM-backed assistants (A5/A6). Optional so the runtime stays
 # dep-free ; the LiteLLM adapter lives in custos.integrations.
 llm = [
-    "litellm>=1.77.1",
+    "litellm>=1.93.0",
 ]
 # LangChain adapter . Optional so the runtime stays dep-free .
 langchain = [
@@ -115,7 +115,7 @@ eval = [
     # Parity-reproduction stack for the eval harness only .
     # Kept optional so embedded agents don't pull these in.
     "google-adk>=1.14.1,<2",
-    "litellm>=1.77.1",
+    "litellm>=1.93.0",
     "mcp[cli]>=1.19,<2",
     "PyYAML",
     "rich",
