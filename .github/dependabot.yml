@@ -1,0 +1,55 @@
+# Dependabot config for Custos.
+# Docs: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+
+updates:
+  # Python runtime + optional extras (pyproject.toml).
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 8
+    labels: ["dependencies", "python"]
+    groups:
+      # Group test-dev tooling bumps (ruff / mypy / pytest / pytest-cov) so
+      # a single PR rolls the toolchain forward.
+      dev-toolchain:
+        applies-to: "version-updates"
+        update-types:
+          - "minor"
+          - "patch"
+        patterns:
+          - "ruff"
+          - "mypy"
+          - "types-PyYAML"
+          - "pytest"
+          - "pytest-cov"
+      # Group vendor SDK adapter pins (langchain-core / mcp / openai-agents /
+      # anthropic) so a bump is reviewed as one PR with all regression tests.
+      adapters:
+        applies-to: "version-updates"
+        patterns:
+          - "langchain-core"
+          - "mcp"
+          - "openai-agents"
+          - "anthropic"
+    ignore:
+      #  runtime dep set is locked to jsonschema only. Do not widen it
+      # via a stray transitive pin bump.
+      - dependency-name: "jsonschema"
+        update-types: ["major"]
+      # eval-harness parity stack is pinned to Janus versions for parity
+      # reproduction. Bump only in lockstep with a parity re-run .
+      - dependency-name: "google-adk"
+      - dependency-name: "mcp[cli]"
+
+  # GitHub Actions workflow versions.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "ci"]
