@@ -102,7 +102,7 @@ llamaindex = [
 # OTLP + Prometheus metrics, opt-in (default-off). Native
 # packages kept behind the extra; no telemetry surface without it.
 telemetry = [
-    "opentelemetry-sdk>=1.27",
+    "opentelemetry-sdk>=1.44.0",
     "opentelemetry-exporter-otlp-proto-grpc>=1.27",
     "prometheus-client>=0.20",
 ]
