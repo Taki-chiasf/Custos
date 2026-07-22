@@ -1,0 +1,262 @@
+[
+  {
+    "label": "eq_int",
+    "op": "==",
+    "a": 1,
+    "b": 1,
+    "expected": true
+  },
+  {
+    "label": "eq_int_ne",
+    "op": "==",
+    "a": 1,
+    "b": 2,
+    "expected": false
+  },
+  {
+    "label": "eq_str",
+    "op": "==",
+    "a": "x",
+    "b": "x",
+    "expected": true
+  },
+  {
+    "label": "eq_null",
+    "op": "==",
+    "a": null,
+    "b": null,
+    "expected": true
+  },
+  {
+    "label": "eq_bool_true",
+    "op": "==",
+    "a": true,
+    "b": true,
+    "expected": true
+  },
+  {
+    "label": "eq_bool_vs_int",
+    "op": "==",
+    "a": true,
+    "b": 1,
+    "expected": true
+  },
+  {
+    "label": "ne_int",
+    "op": "!=",
+    "a": 1,
+    "b": 2,
+    "expected": true
+  },
+  {
+    "label": "gt_int",
+    "op": ">",
+    "a": 2,
+    "b": 1,
+    "expected": true
+  },
+  {
+    "label": "gt_int_lt",
+    "op": ">",
+    "a": 1,
+    "b": 2,
+    "expected": false
+  },
+  {
+    "label": "gt_str",
+    "op": ">",
+    "a": "b",
+    "b": "a",
+    "expected": true
+  },
+  {
+    "label": "gt_cross_type_returns_false",
+    "op": ">",
+    "a": 1,
+    "b": "a",
+    "expected": false
+  },
+  {
+    "label": "lt_int",
+    "op": "<",
+    "a": 1,
+    "b": 2,
+    "expected": true
+  },
+  {
+    "label": "lt_str",
+    "op": "<",
+    "a": "a",
+    "b": "b",
+    "expected": true
+  },
+  {
+    "label": "lt_cross_type_returns_false",
+    "op": "<",
+    "a": "a",
+    "b": 1,
+    "expected": false
+  },
+  {
+    "label": "ge_eq_int",
+    "op": ">=",
+    "a": 2,
+    "b": 2,
+    "expected": true
+  },
+  {
+    "label": "le_eq_int",
+    "op": "<=",
+    "a": 2,
+    "b": 2,
+    "expected": true
+  },
+  {
+    "label": "in_list",
+    "op": "in",
+    "a": 1,
+    "b": [
+      1,
+      2,
+      3
+    ],
+    "expected": true
+  },
+  {
+    "label": "in_list_missing",
+    "op": "in",
+    "a": 4,
+    "b": [
+      1,
+      2,
+      3
+    ],
+    "expected": false
+  },
+  {
+    "label": "in_string_substring_python_supported",
+    "op": "in",
+    "a": "x",
+    "b": "xyz",
+    "expected": true
+  },
+  {
+    "label": "in_string_substring_no_match",
+    "op": "in",
+    "a": "z",
+    "b": "xyz",
+    "expected": true
+  },
+  {
+    "label": "in_null_b_python_raises_caught",
+    "op": "in",
+    "a": 1,
+    "b": null,
+    "expected": false
+  },
+  {
+    "label": "in_object_key",
+    "op": "in",
+    "a": "a",
+    "b": {
+      "a": 1
+    },
+    "expected": true
+  },
+  {
+    "label": "not_in_list_missing",
+    "op": "not_in",
+    "a": 4,
+    "b": [
+      1,
+      2,
+      3
+    ],
+    "expected": true
+  },
+  {
+    "label": "contains_list",
+    "op": "contains",
+    "a": [
+      1,
+      2,
+      3
+    ],
+    "b": 1,
+    "expected": true
+  },
+  {
+    "label": "contains_string_substring",
+    "op": "contains",
+    "a": "abc",
+    "b": "b",
+    "expected": true
+  },
+  {
+    "label": "contains_null_a_python_raises",
+    "op": "contains",
+    "a": null,
+    "b": 1,
+    "expected": false
+  },
+  {
+    "label": "not_contains_list_missing",
+    "op": "not_contains",
+    "a": [
+      1,
+      2,
+      3
+    ],
+    "b": 4,
+    "expected": true
+  },
+  {
+    "label": "matches_start_anchored",
+    "op": "matches",
+    "a": "abc",
+    "b": "ab",
+    "expected": true
+  },
+  {
+    "label": "matches_fullmatch_author_supplied",
+    "op": "matches",
+    "a": "abc",
+    "b": "^abc$",
+    "expected": true
+  },
+  {
+    "label": "matches_unanchored_start_only_no_match",
+    "op": "matches",
+    "a": "abc",
+    "b": "bc",
+    "expected": false
+  },
+  {
+    "label": "matches_prefix",
+    "op": "matches",
+    "a": "abcd",
+    "b": "abc",
+    "expected": true
+  },
+  {
+    "label": "matches_fullmatch_no_match",
+    "op": "matches",
+    "a": "abcd",
+    "b": "^abc$",
+    "expected": false
+  },
+  {
+    "label": "matches_non_string_returns_false",
+    "op": "matches",
+    "a": 123,
+    "b": ".*",
+    "expected": false
+  },
+  {
+    "label": "matches_invalid_regex_safe_false",
+    "op": "matches",
+    "a": "abc",
+    "b": "[invalid",
+    "expected": false
+  }
+]

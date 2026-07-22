@@ -1,0 +1,59 @@
+{
+  "name": "@custos/core",
+  "version": "1.0.0",
+  "description": "Drop-in permission middleware for AI agents - TypeScript SDK (deterministic subset).",
+  "license": "Apache-2.0",
+  "author": "Custos contributors",
+  "keywords": [
+    "ai",
+    "agents",
+    "permissions",
+    "security",
+    "middleware",
+    "policy",
+    "custos"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Taki-chiasf/Custos",
+    "directory": "packages/custos-ts"
+  },
+  "homepage": "https://github.com/Taki-chiasf/Custos#readme",
+  "bugs": "https://github.com/Taki-chiasf/Custos/issues",
+  "engines": {
+    "node": ">=20"
+  },
+  "type": "module",
+  "main": "./dist/esm/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "default": "./dist/esm/index.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "IR_CONTRACT.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {},
+  "optionalDependencies": {},
+  "peerDependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  }
+}

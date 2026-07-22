@@ -1,0 +1,44 @@
+[
+  {
+    "decision": "allow",
+    "expected_value": "allow",
+    "is_allow": true
+  },
+  {
+    "decision": "allow_once",
+    "expected_value": "allow_once",
+    "is_allow": true
+  },
+  {
+    "decision": "allow_and_persist",
+    "expected_value": "allow_and_persist",
+    "is_allow": true
+  },
+  {
+    "decision": "deny",
+    "expected_value": "deny",
+    "is_allow": false
+  },
+  {
+    "decision": "prompt",
+    "expected_value": "prompt",
+    "is_allow": false
+  },
+  {
+    "decision": "defer",
+    "expected_value": "defer",
+    "is_allow": false
+  },
+  {
+    "janus_verdict": "approve_once",
+    "custos": "allow_once"
+  },
+  {
+    "janus_verdict": "create_policy",
+    "custos": "allow_and_persist"
+  },
+  {
+    "janus_verdict": "reject",
+    "custos": "deny"
+  }
+]
