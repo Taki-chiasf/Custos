@@ -1,7 +1,7 @@
 # Telemetry (opt-in, default-off)
 
 Custos telemetry (Q4 resolution): OTLP traces + Prometheus
-metrics behind the `custos[telemetry]` extra, **default-off**. An
+metrics behind the `custos-middleware[telemetry]` extra, **default-off**. An
 `import custos` with no extras installed produces no OTLP spans and no
 Prometheus registry.
 

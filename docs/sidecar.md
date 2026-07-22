@@ -14,7 +14,7 @@ pip install "custos-middleware[sidecar]"     # adds grpcio + protobuf (tested-mi
 ```
 
  unchanged — the runtime dep set stays `jsonschema`-literal; the
-sidecar gate is the `custos[sidecar]` extra.
+sidecar gate is the `custos-middleware[sidecar]` extra.
 
 ## Run
 

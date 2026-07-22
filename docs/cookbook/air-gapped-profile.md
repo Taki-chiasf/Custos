@@ -105,7 +105,7 @@ routing fails closed to `DENY` for any unregistered `name`).
 ## Telemetry
 
 Even the air-gapped profile can still emit OTLP + Prometheus metrics — but
-ONLY if the operator installs `custos[telemetry]` and explicitly opts in.
+ONLY if the operator installs `custos-middleware[telemetry]` and explicitly opts in.
 With no extras installed, `import custos` produces no telemetry spans or
 metrics (+ the  default-off regression test). See
 [`docs/telemetry.md`](../telemetry.md).

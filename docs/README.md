@@ -12,7 +12,7 @@ mkdocs build                   # emits site/
 ```
 
 `docs/` is docs-only — no runtime dependency of the Custos Python or TS
-package. The `custos[docs]` extra is developer-side only.
+package. The `custos-middleware[docs]` extra is developer-side only.
 
 ## Layout
 

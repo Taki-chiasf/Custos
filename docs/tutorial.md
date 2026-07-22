@@ -23,17 +23,17 @@ Agents, Anthropic, AutoGen, Google ADK, LlamaIndex) and the eval / telemetry
 
 | Goal | Extra |
 |---|---|
-| YAML policy loading | `custos[yaml]` |
-| LLM-backed assistants A5/A6/A9 + `LiteLLMClient` | `custos[llm]` (or local Ollama in the eval harness) |
-| LangChain adapter | `custos[langchain]` |
-| MCP in-process adapter | `custos[mcp]` |
-| OpenAI Agents SDK adapter | `custos[openai-agents]` |
-| Anthropic messages-API adapter | `custos[anthropic]` |
-|  carry-forward adapters | `custos[autogen]`, `custos[google-adk]`, `custos[llamaindex]` |
-| gRPC sidecar | `custos[sidecar]` |
-| OTLP + Prometheus metrics (opt-in, default-off) | `custos[telemetry]` |
-| Eval harness + Janus parity suite | `custos[eval]` (uses local Ollama by default) |
-| This docs site | `custos[docs]` (mkdocs-material) |
+| YAML policy loading | `custos-middleware[yaml]` |
+| LLM-backed assistants A5/A6/A9 + `LiteLLMClient` | `custos-middleware[llm]` (or local Ollama in the eval harness) |
+| LangChain adapter | `custos-middleware[langchain]` |
+| MCP in-process adapter | `custos-middleware[mcp]` |
+| OpenAI Agents SDK adapter | `custos-middleware[openai-agents]` |
+| Anthropic messages-API adapter | `custos-middleware[anthropic]` |
+|  carry-forward adapters | `custos-middleware[autogen]`, `custos-middleware[google-adk]`, `custos-middleware[llamaindex]` |
+| gRPC sidecar | `custos-middleware[sidecar]` |
+| OTLP + Prometheus metrics (opt-in, default-off) | `custos-middleware[telemetry]` |
+| Eval harness + Janus parity suite | `custos-middleware[eval]` (uses local Ollama by default) |
+| This docs site | `custos-middleware[docs]` (mkdocs-material) |
 
 ## 2. Your first policy
 
@@ -155,7 +155,7 @@ poisoning.
 ## 7. Pick an assistant
 
 By default `RulePolicy` (A7) handles every `assist:*` action deterministically.
-For LLM-backed risk scoring, install `custos[llm]` and swap in A5:
+For LLM-backed risk scoring, install `custos-middleware[llm]` and swap in A5:
 
 ```python
 from custos.assistants import RiskAssessment

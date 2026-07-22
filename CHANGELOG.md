@@ -46,7 +46,7 @@ v1.0 GA. 604 Python tests + 172 TS tests pass. ruff + mypy --strict clean.
 - Audit tamper-evidence (`HashChainedAuditSink` + `custos audit verify`).
 - Docs site (MkDocs Material: threat model, tutorial, cookbook).
 - AutoGen, Google ADK, LlamaIndex adapter integrations.
-- OTLP + Prometheus telemetry, `custos[telemetry]` extra, default-off.
+- OTLP + Prometheus telemetry, `custos-middleware[telemetry]` extra, default-off.
 - Python 3.13 stdin-capture fix; full license audit.
 - Janus-v1 harness hardening (incremental flush+fsync, 5-tuple resume,
   partial-tail repair; qwen2.5:7b-instruct smoke green).
@@ -82,9 +82,9 @@ in-process. 492 tests pass; ruff + mypy --strict clean across 75 source files.
   each child; single-approver path unchanged.
 
 ### Added — Framework adapters (MCP / OpenAI / Anthropic)
-- `custos[mcp]` — MCP in-process adapter: `gated_tool` + `wrap_mcp_tools`.
-- `custos[openai-agents]` — OpenAI Agents SDK adapter: `gated_function_tool`.
-- `custos[anthropic]` — Anthropic messages-API adapter: `gated_anthropic_tool`.
+- `custos-middleware[mcp]` — MCP in-process adapter: `gated_tool` + `wrap_mcp_tools`.
+- `custos-middleware[openai-agents]` — OpenAI Agents SDK adapter: `gated_function_tool`.
+- `custos-middleware[anthropic]` — Anthropic messages-API adapter: `gated_anthropic_tool`.
 - All adapters isolate vendor imports inside function bodies for runtime dep-freedom.
 
 ### Added — Shared operator primitives
@@ -164,4 +164,4 @@ Core middleware. 183 tests pass.
 - Assistants A5 (risk-assessment), A6 (autonomous), A7 (rule-policy).
 - LLM client protocol seam; LiteLLM adapter.
 - Python SDK `Gateway.wrap` with `functools.wraps` signature preservation.
-- LangChain adapter (`custos[langchain]` extra).
+- LangChain adapter (`custos-middleware[langchain]` extra).

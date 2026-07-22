@@ -10,13 +10,13 @@ vendor-imports-inside-function-bodies invariant; each ships a
 
 | Adapter | Extra | API | Notes |
 |---|---|---|---|
-| LangChain | `custos[langchain]` | `wrap_langchain_tools` | Sync; preserves name/description/args_schema. |
-| MCP in-process | `custos[mcp]` | `gated_tool` decorator + `wrap_mcp_tools` | Native-async-first; `@mcp.tool` re-registration via `add_tool`. Filename `mcp_` (Anthropic-shadowing rule). |
-| OpenAI Agents SDK | `custos[openai-agents]` | `gated_function_tool` + `wrap_openai_agent_tools` | Native-async-first; SDK's failure-wrapper preserved so DENY surfaces as a model-visible tool-error string. |
-| Anthropic messages-API | `custos[anthropic]` | `gated_anthropic_tool` + `wrap_anthropic_tool_handlers` | Handler-side gating; the LLM owns tool args. Filename `anthropic_`. |
-| AutoGen | `custos[autogen]` | `gated_autogen_tool` + `wrap_autogen_tools` |  carry-forward; native-async-first. |
-| Google ADK (Gemini) | `custos[google-adk]` | `gated_adk_tool` + `wrap_adk_tools` |  carry-forward; native-async-first. |
-| LlamaIndex | `custos[llamaindex]` | `gated_function_tool` (LlamaIndex `FunctionTool`) |  carry-forward; handler-side gating. |
+| LangChain | `custos-middleware[langchain]` | `wrap_langchain_tools` | Sync; preserves name/description/args_schema. |
+| MCP in-process | `custos-middleware[mcp]` | `gated_tool` decorator + `wrap_mcp_tools` | Native-async-first; `@mcp.tool` re-registration via `add_tool`. Filename `mcp_` (Anthropic-shadowing rule). |
+| OpenAI Agents SDK | `custos-middleware[openai-agents]` | `gated_function_tool` + `wrap_openai_agent_tools` | Native-async-first; SDK's failure-wrapper preserved so DENY surfaces as a model-visible tool-error string. |
+| Anthropic messages-API | `custos-middleware[anthropic]` | `gated_anthropic_tool` + `wrap_anthropic_tool_handlers` | Handler-side gating; the LLM owns tool args. Filename `anthropic_`. |
+| AutoGen | `custos-middleware[autogen]` | `gated_autogen_tool` + `wrap_autogen_tools` |  carry-forward; native-async-first. |
+| Google ADK (Gemini) | `custos-middleware[google-adk]` | `gated_adk_tool` + `wrap_adk_tools` |  carry-forward; native-async-first. |
+| LlamaIndex | `custos-middleware[llamaindex]` | `gated_function_tool` (LlamaIndex `FunctionTool`) |  carry-forward; handler-side gating. |
 
 All follow the convention: `deny`/`defer` raises
 `custos.exceptions.PermissionDenied`; the host decides how to surface it

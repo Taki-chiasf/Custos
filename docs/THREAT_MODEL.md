@@ -4,8 +4,8 @@ This document is the standalone threat model for Custos referenced by sec 15. It
 table that maps every security bullet in sec 15 to a threat + mitigation.
 
 Scope: the Custos in-process runtime (Python `custos` and TS `@taqiy/custos-core`),
-the  gRPC sidecar (`custos[sidecar]`), and the  telemetry surface
-(`custos[telemetry]`, default-off). The  adapters (AutoGen, Google ADK,
+the  gRPC sidecar (`custos-middleware[sidecar]`), and the  telemetry surface
+(`custos-middleware[telemetry]`, default-off). The  adapters (AutoGen, Google ADK,
 LlamaIndex) are droppable integration surfaces; their threat entry appears in
 the STRIDE table at the "process \| agent framework" boundary and is referenced
 where relevant. The document is normative: a that does NOT
@@ -42,7 +42,7 @@ mitigation MUST name which boundary it enforces.
 | Process \| policy file | YAML / programmatic policy load, hot-reload. Rule-text crosses from filesystem to in-memory policy. | Yes for prod mode (signed policies); the v1.0 cut is unsigned (documented gap, mitigated by operator permissions on the file) |
 | Process \| audit log | JSONL emit (file/stdout/OTLP/S3/hash-chained). AuditEvents cross outbound only; never inbound. | Yes — append-only, hash-chained optional, HMAC-signable |
 | Sidecar API \| caller | gRPC `CustosGateway.Decide`. `caller_id` + bearer + `request_id` + tenant_id cross the wire. | Yes — mTLS mandatory, bearer + nonce replay cache + tenant rate limit |
-| Process \| telemetry backend | OTLP / Prometheus scrape. Aggregated counters and spans cross outbound. | Opt-in only (`custos[telemetry]`, default-off) |
+| Process \| telemetry backend | OTLP / Prometheus scrape. Aggregated counters and spans cross outbound. | Opt-in only (`custos-middleware[telemetry]`, default-off) |
 
 ## 3. Assets
 
@@ -131,5 +131,5 @@ notes, kept in sync):
 - Sidecar auth envelope: `src/custos/sidecar/server.py:GatewayServicer` +
   `ReplayCache` + `TenantRateLimiter` + `verdict_signature`; TS surface in
   `packages/custos-ts/` `@taqiy/custos-grpc` `GrpcSidecarTransport`.
-- Telemetry opt-in : `src/custos/telemetry/` behind `custos[telemetry]`,
+- Telemetry opt-in : `src/custos/telemetry/` behind `custos-middleware[telemetry]`,
   default-off.

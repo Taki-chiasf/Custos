@@ -5,7 +5,7 @@ implementation consumed by [`@taqiy/custos-core`](../custos-ts/)'s
 `sidecarAssistant(transport)` factory.
 
 The Python [`custos`](https://github.com/Taki-chiasf/Custos) package's
-`custos[sidecar]` extra runs the gateway server-side (`custos sidecar`
+`custos-middleware[sidecar]` extra runs the gateway server-side (`custos sidecar`
 CLI subcommand); this package is the matching TS client transport. It
 carries caller attestation (mTLS material + bearer + per-call nonce) and
 forwards `DecideRequest` messages over gRPC. The ** floor-is-local
@@ -24,7 +24,7 @@ npm install @grpc/grpc-js @grpc/proto-loader
 
 Runtime deps: `@grpc/grpc-js` + `@grpc/proto-loader` (peer deps, so the
 operator pins the tested-minimum versions; `@taqiy/custos-grpc` itself does NOT
-bundle them — mirrors the Python `custos[sidecar]` extra gate keeping the
+bundle them — mirrors the Python `custos-middleware[sidecar]` extra gate keeping the
 runtime dep set literal). `@taqiy/custos-core` is a `workspace:*` dependency;
 install it alongside.
 

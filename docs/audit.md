@@ -13,7 +13,7 @@ carries: `ts_unix_ms`, `invocation`, `decision`, `policy_match`, `assistant`,
 | `FileAuditSink` | JSONL append | NO (documented) |
 | `StdoutAuditSink` | stdout | NO (documented) |
 | `HashChainedAuditSink` | JSONL hash-chained envelope; optional HMAC per-line | YES  |
-| OTLP / S3 | via `custos[telemetry]`/custom | operator-managed |
+| OTLP / S3 | via `custos-middleware[telemetry]`/custom | operator-managed |
 
 ## Hash-chained sink
 
@@ -32,7 +32,7 @@ restarts is safe.
 
 v1.0 ships **symmetric HMAC-SHA256** (the documented v1.0 compliance primitive
 for the P3 claim). Asymmetric (Ed25519) `--pubkey` is a v1.1 target gated on a
-future `custos[crypto]` extra (no new hard dep at v1.0;  unchanged).
+future `custos-middleware[crypto]` extra (no new hard dep at v1.0;  unchanged).
 
 For two sinks (file + tamper-evident together):
 

@@ -102,7 +102,7 @@ A1-A11 implement the `Assistant` Protocol (sec 9.4).  ships:
 
 - A7 `RulePolicy` - pure deterministic rules, no LLM (fast path).
 - A5 `RiskAssessment` - goal-aware LLM risk scoring; `risk <= tolerance` ->
-  `allow_once`, else `prompt` (2 LLM calls; requires `custos[llm]`).
+  `allow_once`, else `prompt` (2 LLM calls; requires `custos-middleware[llm]`).
 - A6 `RiskAssessmentAutonomous` - same as A5 but never prompts (denies on
   above-tolerance).
 

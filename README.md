@@ -30,14 +30,14 @@ pip install "custos-middleware[anthropic]"         # Anthropic messages-API adap
 
 | Extra | Adds | When you need it |
 |---|---|---|
-| `custos` (no extra) | JSON-schema validator only | Programmatic `Policy.from_spec` |
-| `custos[yaml]` | PyYAML | `Policy.from_yaml("policy.yaml")` |
-| `custos[llm]` | LiteLLM | Remote-LLM assistants (A5/A6/A9) |
-| `custos[langchain]` | langchain-core | `Gateway.wrap(langchain_tools)` |
-| `custos[mcp]` | mcp>=1.14,<2 | `gated_tool(MCP_server, ...)` |
-| `custos[openai-agents]` | openai-agents>=0.18,<1 | `gated_function_tool(...)` |
-| `custos[anthropic]` | anthropic>=0.40,<1 | `gated_anthropic_tool(...)` |
-| `custos[eval]` | google-adk, litellm, mcp | `custos eval` + `custos audit replay` |
+| `custos-middleware` (no extra) | JSON-schema validator only | Programmatic `Policy.from_spec` |
+| `custos-middleware[yaml]` | PyYAML | `Policy.from_yaml("policy.yaml")` |
+| `custos-middleware[llm]` | LiteLLM | Remote-LLM assistants (A5/A6/A9) |
+| `custos-middleware[langchain]` | langchain-core | `Gateway.wrap(langchain_tools)` |
+| `custos-middleware[mcp]` | mcp>=1.14,<2 | `gated_tool(MCP_server, ...)` |
+| `custos-middleware[openai-agents]` | openai-agents>=0.18,<1 | `gated_function_tool(...)` |
+| `custos-middleware[anthropic]` | anthropic>=0.40,<1 | `gated_anthropic_tool(...)` |
+| `custos-middleware[eval]` | google-adk, litellm, mcp | `custos eval` + `custos audit replay` |
 
 > The **runtime** (embedded in an agent) has zero hard deps beyond `jsonschema`
 > . All LLM, YAML, adapter, and eval dependencies are optional extras.
@@ -112,15 +112,15 @@ multi = MultiApproverResponder(children=[finance_responder, security_responder],
 - **Audit sink** - structured, append-only decision log + `quorum_state` field
   for compliance observability .
 - **Framework adapters** - in-process wrappers for:
-  - **MCP** (`custos[mcp]`) - `gated_tool` decorator + `wrap_mcp_tools` post-hoc
+  - **MCP** (`custos-middleware[mcp]`) - `gated_tool` decorator + `wrap_mcp_tools` post-hoc
     re-wrap; `FastMCP` servers.
-  - **OpenAI Agents** (`custos[openai-agents]`) - `gated_function_tool`
+  - **OpenAI Agents** (`custos-middleware[openai-agents]`) - `gated_function_tool`
     decorator + `wrap_openai_agent_tools`; produces model-visible tool errors
     on deny.
-  - **Anthropic** (`custos[anthropic]`) - `gated_anthropic_tool` +
+  - **Anthropic** (`custos-middleware[anthropic]`) - `gated_anthropic_tool` +
     `wrap_anthropic_tool_handlers`; gates the handler side of the
     messages-API dispatch loop.
-  - **LangChain** (`custos[langchain]`) - `wrap_langchain_tools`.
+  - **LangChain** (`custos-middleware[langchain]`) - `wrap_langchain_tools`.
 - **Eval harness** - `custos eval` CI suite reproducing the Janus v1 parity
   matrix  and a Custos-authored adversarial regression suite
   . The adversarial suite covers N>=50 cells (expansion)

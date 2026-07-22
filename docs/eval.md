@@ -82,4 +82,4 @@ sys.exit(rc)
 The `custos eval` and `custos audit replay` entry points are importable
 from a wheel install — the eval code lives under `src/custos/eval/` (not
 the Python builtin-shadowing `eval/` legacy layout). `pip install
-custos[eval]` is the user-facing gate.
+custos-middleware[eval]` is the user-facing gate.
