@@ -100,15 +100,15 @@ class FatigueLayer(Protocol):
     ) -> None:
         """Seam C: record the dedup/suppression cache entry.
 
-        ``DEFER`` is never cached so the next identical call re-prompts
-        . The TTL comes from ``response.ttl`` (suppression,
-) or the layer's default dedup TTL . The
-        ``cacheable`` kwarg  is threaded by the gateway from the
-        seam-B :class:`FatigueDecision.cacheable` flag — transient
-        decisions (rate-limit overflow, gateway-error DENY) pass
-        ``cacheable=False`` so they do not poison the dedup cache (C6
-        regression, council 2026-07-22: the prior instance-slot was
-        racy under AsyncGateway concurrency).
+                ``DEFER`` is never cached so the next identical call re-prompts
+                . The TTL comes from ``response.ttl`` (suppression,
+        ) or the layer's default dedup TTL . The
+                ``cacheable`` kwarg  is threaded by the gateway from the
+                seam-B :class:`FatigueDecision.cacheable` flag — transient
+                decisions (rate-limit overflow, gateway-error DENY) pass
+                ``cacheable=False`` so they do not poison the dedup cache (C6
+                regression, council 2026-07-22: the prior instance-slot was
+                racy under AsyncGateway concurrency).
         """
         ...
 

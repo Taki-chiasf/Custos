@@ -48,7 +48,7 @@ def test_policy_outcome_contract() -> None:
 
 
 def test_side_effect_taxonomy() -> None:
-    
+
     assert {s.value for s in SideEffect} == {
         "none",
         "read",

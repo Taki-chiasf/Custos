@@ -45,7 +45,7 @@ __all__ = [
 
 @dataclass(frozen=True)
 class MetricReport:
-    """ metric aggregate over one suite run.
+    """metric aggregate over one suite run.
 
     All counts/rates except ``prompts_per_session`` are over the *positive*
     class (calls the policy/ground-truth said should be denied). Empty suites
