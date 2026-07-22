@@ -55,7 +55,7 @@ llm = [
 ]
 # LangChain adapter . Optional so the runtime stays dep-free .
 langchain = [
-    "langchain-core>=0.3",
+    "langchain-core>=1.5.0",
 ]
 # MCP in-process adapter . Targets the stable v1.x
 # line (Janus pins 1.14.1). Upper-bound <2 so the pre-release v2 alpha/beta
@@ -68,13 +68,13 @@ mcp = [
 # (still pre-1.0 upstream; pin a tested minimum and minor upper bound so a
 # breaking 1.x cut doesn't silently land). Migrate the upper bound in .
 openai-agents = [
-    "openai-agents>=0.18,<1",
+    "openai-agents>=0.18.3,<1",
 ]
 # Anthropic messages-API tool adapter . Targets the
 # stable 0.x line (still pre-1.0 upstream; minor upper bound so a breaking 1.x
 # cut doesn't silently land). Migrate the upper bound in .
 anthropic = [
-    "anthropic>=0.40,<1",
+    "anthropic>=0.117.1,<1",
 ]
 # Sidecar/gRPC mode . Pins the tested-minimum grpcio +
 # protobuf; grpcio-tools is dev-side only (proto stub regen).  runtime
