@@ -35,7 +35,7 @@ dependencies = [
 # Dev/test-only. The eval harness  inherits the Janus stack for
 # parity reproduction; these MUST NOT leak into the runtime dependency set.
 dev = [
-    "pytest>=8",
+    "pytest>=9.1.1",
     "pytest-cov>=5",
     "ruff>=0.5",
     "mypy>=1.10",
