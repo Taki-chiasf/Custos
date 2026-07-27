@@ -126,7 +126,7 @@ jobs:
           echo "body<<EOF" >> $GITHUB_OUTPUT
           cat /tmp/release_notes.md >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           name: v${{ github.ref_name }}
           body: ${{ steps.notes.outputs.body }}
