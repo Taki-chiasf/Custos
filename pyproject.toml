@@ -88,7 +88,7 @@ sidecar = [
 # 0.4 line (still pre-1.0 upstream; pin a tested minimum + upper bound so a
 # breaking 1.x cut doesn't silently land).
 autogen = [
-    "autogen-agentchat>=0.4,<0.5",
+    "autogen-agentchat>=0.4,<0.8",
 ]
 # Google ADK (Gemini) adapter (carry-forward). Targets
 # the 0.x line (pin a tested minimum + upper bound).
