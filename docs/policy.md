@@ -48,7 +48,7 @@ policy_version) — .
 
 `allow`, `deny`, `prompt`, `assist:<name>`, `allow_and_audit`, `deny_and_alert`.
 
-- `deny` short-circuits the pipeline (sec 15 floor); an assistant is NEVER
+- `deny` short-circuits the pipeline (the floor invariant); an assistant is NEVER
   invoked on a policy `deny`.
 - `assist:<name>` routes to a registered assistant by name .
   An unresolved name fail-closes to a safe `deny` + audit.
@@ -94,4 +94,4 @@ A validation failure raises `PolicyValidationError(ValueError)`.
 For `(invocation, context, policy_version)` the policy evaluation is
 deterministic, pure, and reproducible. Assistants may be non-deterministic
 by design (the only allowed source); an assistant `allow` never relaxes a
-policy `deny` (the sec 15 floor).
+policy `deny` (the floor invariant).

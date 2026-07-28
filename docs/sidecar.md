@@ -3,7 +3,7 @@
 Custos ships a standalone gRPC gateway mode  for runtimes
 that can't be wrapped in-process (a TS agent, a Ruby agent, a separate
 language service). The same in-process `Gateway.decide` is exposed over
-gRPC with the sec 15 sidecar auth envelope: mTLS for transport, bearer
+gRPC with the authenticated security envelope: mTLS for transport, bearer
 token (or delegated OIDC) for caller identity, per-call `request_id` / nonce
 for replay detection, per-tenant rate limit.
 
@@ -28,7 +28,7 @@ custos sidecar --policy policy.yaml \
 ```
 
 mTLS is **mandatory** for v1.0 — the server refuses to start without
-`--tls-cert/--tls-key/--tls-ca` (a plaintext sidecar is a sec 15 violation:
+`--tls-cert/--tls-key/--tls-ca` (a plaintext sidecar is a security violation:
 bearer + nonce are post-TLS primitives, not transport primitives).
 
 ## Auth envelope

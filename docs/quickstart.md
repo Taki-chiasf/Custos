@@ -37,8 +37,8 @@ decision = gated[0]("/etc/hosts")        # read_file -> allow_and_audit
 
 ## Policy file (YAML)
 
-Custos policy is a declarative ruleset evaluated top-down, first-match-wins
-. Match criteria are AND-ed; an absent criterion matches everything.
+Custos policy is a declarative ruleset evaluated top-down, first-match-wins.
+Match criteria are AND-ed; an absent criterion matches everything.
 
 ```yaml
 version: 1
@@ -62,7 +62,7 @@ overlays:
         action: allow_and_audit
 ```
 
-Match criteria :
+Match criteria:
 
 - `tool` - glob via `fnmatch` (e.g. `fs.read*` matches `fs.read_file`).
 - `risk_tier` - int (exact) or `[min, max]` (inclusive range).
@@ -74,31 +74,31 @@ Match criteria :
 - `goal_id`, `delegation_depth` - exact match against the subject context.
 - `any: true` - wildcard.
 
-Actions : `allow`, `deny`, `prompt`, `assist:<name>`,
+Actions: `allow`, `deny`, `prompt`, `assist:<name>`,
 `allow_and_audit`, `deny_and_alert`.
 
 ## The decision pipeline
 
-Every tool call flows through the 8-step pipeline (sec 9.2):
+Every tool call flows through the 8-step decision pipeline:
 
 1. Parse the invocation.
-2. Policy evaluation (deterministic, pure -).
+2. Policy evaluation (deterministic, pure).
 3. If `ASSIST`: invoke the named permission assistant (may be non-deterministic
    via LLM; this is the only allowed source of non-determinism).
 4. If `PROMPT`: hand a redacted request to the responder (CLI / web / webhook
    / noop).
-5. Fatigue layer (: batching, dedup, suppression windows).
+5. Fatigue layer: batching, dedup, suppression windows.
 6. Timeout enforcement (deny on expiry unless policy says otherwise).
 7. Audit the decision + full reasoning chain.
 8. Return the `Decision` to the agent.
 
-The floor/ceiling invariant : a policy `deny` is final - an assistant
-can only ESCALATE strictness, never relax a denial. Assistant output is
+The floor/ceiling invariant: a policy `deny` is final — an assistant can
+only escalate strictness, never relax a denial. Assistant output is
 untrusted.
 
 ## Assistants
 
-A1-A11 implement the `Assistant` Protocol (sec 9.4).  ships:
+The assistant catalog (A1-A11) ships with:
 
 - A7 `RulePolicy` - pure deterministic rules, no LLM (fast path).
 - A5 `RiskAssessment` - goal-aware LLM risk scoring; `risk <= tolerance` ->

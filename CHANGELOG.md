@@ -6,16 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Added
-- Release workflow: automated GitHub Release on tag push, with Python wheel/sdist
-  and SBOM artifacts. PyPI publish via OIDC trusted publishing; npm publish
-  (@taqiy/custos-core, @taqiy/custos-grpc) via provenance-signed CI.
-- Bumped `@taqiy/custos-grpc` 1.0.0-rc1.0 → 1.0.0 for GA.
-
 ### Remaining
 - Full 1440-cell Janus-v1 parity matrix run.
 
-## [1.0.0] — 2026-07-22
+## [1.0.0] — 2026-07-28
 
 v1.0 GA. 604 Python tests + 172 TS tests pass. ruff + mypy --strict clean.
 `pip-audit` clean; CycloneDX SBOM shipped.
@@ -50,12 +44,21 @@ v1.0 GA. 604 Python tests + 172 TS tests pass. ruff + mypy --strict clean.
 - Python 3.13 stdin-capture fix; full license audit.
 - Janus-v1 harness hardening (incremental flush+fsync, 5-tuple resume,
   partial-tail repair; qwen2.5:7b-instruct smoke green).
+- Release workflow: automated GitHub Release on tag push, with Python wheel/sdist
+  and SBOM artifacts. PyPI publish via OIDC trusted publishing; npm publish
+  (@taqiy/custos-core, @taqiy/custos-grpc) via provenance-signed CI.
+- Bumped `@taqiy/custos-grpc` 1.0.0-rc1.0 → 1.0.0 for GA.
 
 ### Changed
 - `custos.__version__` 1.0.0rc1 → 1.0.0.
 - `@taqiy/custos-core` version 1.0.0-rc1.0 → 1.0.0.
 - `pyproject.toml` classifier: Beta → Production/Stable.
 - Pinned risk_score canonical float repr; missing-signature = failed-verification.
+- Rewrote README with problem-first structure: architecture flow diagram,
+  decision pipeline overview, comparison table, assistant LLM-needs table,
+  install decision guide, and documentation link table.
+- Polished docs/index.md landing page: removed internal annotation tags,
+  friendlier opening paragraph.
 
 ## [1.0.0rc1] — 2026-07-20
 
@@ -165,3 +168,11 @@ Core middleware. 183 tests pass.
 - LLM client protocol seam; LiteLLM adapter.
 - Python SDK `Gateway.wrap` with `functools.wraps` signature preservation.
 - LangChain adapter (`custos-middleware[langchain]` extra).
+
+[Unreleased]: https://github.com/Taki-chiasf/Custos/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Taki-chiasf/Custos/compare/v1.0.0rc1...v1.0.0
+[1.0.0rc1]: https://github.com/Taki-chiasf/Custos/compare/v0.4.0...v1.0.0rc1
+[0.4.0]: https://github.com/Taki-chiasf/Custos/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/Taki-chiasf/Custos/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/Taki-chiasf/Custos/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/Taki-chiasf/Custos/releases/tag/v0.1.0

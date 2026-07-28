@@ -24,7 +24,7 @@ package. The `custos-middleware[docs]` extra is developer-side only.
   payment-quorum, learned-policy opt-out, air-gapped-profile.
 - `assistants.md` / `responders.md` / `audit.md` / `eval.md` — component
   reference.
-- `telemetry.md` — the  opt-in surface.
+- `telemetry.md` — the opt-in surface.
 - `adapters.md` / `sidecar.md` — integration surfaces.
 - `THREAT_MODEL.md` — normative; every mapped to a STRIDE
   threat + mitigation.

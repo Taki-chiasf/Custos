@@ -1,147 +1,333 @@
 # Custos
 
-Drop-in permission middleware for AI agents. Custos sits between an agent and
-the tools it calls, intercepts every tool invocation, and decides whether to
-allow, deny, batch-prompt the user, or auto-approve with audit - based on a
-deterministic policy plus an optional LLM-driven permission assistant.
+Drop-in permission middleware for AI agents.
 
-**One-line pitch:** OAuth-style consent and authorization, but for autonomous
-LLM agents.
+[![Python](https://img.shields.io/badge/python-%3E%3D3.10-blue.svg)](https://pypi.org/project/custos-middleware/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://pypi.org/project/custos-middleware/)
 
-> Status: **v1.0 release candidate (v1.0.0rc1)**. The runtime targets Python
-> >=3.10 with zero hard dependencies beyond a JSON-schema validator (>). Custos is an independent, production-grade reimplementation and
-> extension of the Janus concept (arXiv:2607.01510, Brigham et al., U.
-> Washington); it is not affiliated with the Janus authors. Janus is treated
-> as a design reference only - no Janus code is vendored (Apache-2.0).
+---
+
+## What is Custos?
+
+Modern AI agents make tool calls — they read your files, send emails, query
+databases, run shell commands, and call APIs. A single misdirected prompt can
+cause real damage: data exfiltration, unintended writes, or privilege escalation.
+
+**Custos sits between your agent and the tools it calls**, intercepting every
+invocation and deciding whether to allow, deny, or ask you — based on a
+declarative policy you control.
+
+Think of it as OAuth-style consent, but for autonomous LLM agents.
+
+```
+  ┌───────┐      ┌────────────────────┐      ┌──────────┐
+  │ Agent │─────>│      Custos        │─────>│  Tools   │
+  └───────┘      │                    │      └──────────┘
+                 │  policy evaluator  │
+                 │  + AI assistant    │
+                 │  + your approval   │
+                 │  + audit trail     │
+                 └────────────────────┘
+```
+
+**Key principles:**
+
+- **Default-deny.** Anything not explicitly allowed in policy is blocked.
+- **Policy is the floor.** An AI assistant can escalate strictness, but can
+  never override a `deny`.
+- **Transparent wrapping.** The agent sees the same tool signatures it always
+  did. Gating is invisible to the agent code.
+- **Zero runtime deps** beyond a JSON-schema validator. Every framework
+  adapter, LLM backend, and eval suite is an optional extra.
+
+---
+
+## How it works
+
+Every tool call flows through a single decision pipeline:
+
+```
+    Tool call
+       │
+  ┌────▼─────┐
+  │ 1. Policy│  Deterministic. Evaluates your YAML rules.
+  │   engine │  First-match-wins. Returns allow/deny/assist/prompt.
+  └────┬─────┘
+       │
+  ┌────▼─────┐
+  │ 2. AI    │  (optional) If policy says "assist:<name>", an LLM-driven
+  │   asst.  │  assistant scores risk and returns a recommendation.
+  └────┬─────┘
+       │
+  ┌────▼─────┐
+  │ 3. User  │  (optional) If still unresolved, prompts you via CLI,
+  │   prompt │  Slack, web widget, or webhook. You decide.
+  └────┬─────┘
+       │
+  ┌────▼─────┐
+  │ 4. Fatigue│  Deduplicates repeated prompts, batches similar calls,
+  │   layer  │  enforces rate limits, supports "ask me later".
+  └────┬─────┘
+       │
+  ┌────▼─────┐
+  │ 5. Audit │  Every decision is logged — what, who, why, how long.
+  │   + return│  Hash-chained, tamper-evident, verifiable.
+  └────┬─────┘
+       │
+  Decision: allow / allow_once / allow_and_persist / deny / prompt / defer
+```
+
+### Decision types
+
+| Decision | Meaning |
+|----------|---------|
+| `allow` | Matched a standing policy rule. Execute immediately. |
+| `allow_once` | Execute this one time. Future identical calls will be re-evaluated. |
+| `allow_and_persist` | Execute and save a new policy rule for future calls. |
+| `deny` | Blocked. Final — no assistant or responder can override. |
+| `prompt` | Hand to the responder. Ask the user what to do. |
+| `defer` | Rate-limited or batched. Try again later. |
+
+---
+
+## Quick example
+
+```python
+from custos import Gateway, Policy
+from custos.assistants import RulePolicy
+from custos.responders import CLIResponder
+from custos.audit import FileAuditSink
+
+# 1. Load your rules
+policy = Policy.from_yaml("policy.yaml")
+
+# 2. Assemble the gateway
+gw = Gateway(
+    policy=policy,
+    assistant=RulePolicy,                # deterministic fast path (A7)
+    responder=CLIResponder(timeout=30),  # ask you in the terminal
+    audit_sink=FileAuditSink("audit.jsonl"),
+)
+
+# 3. Wrap your tools — they keep the same signatures
+gated_read, gated_write, gated_send = gw.wrap([read_file, write_file, send_email])
+
+# 4. Agent code calls tools normally; Custos gates transparently
+gated_read("/etc/hosts")   # policy match -> allowed, silently audited
+gated_send(  "/hi")        # no policy match -> prompt: y/N/a/A/l/d
+```
+
+A minimal `policy.yaml`:
+
+```yaml
+version: 1
+default: deny                    # everything blocked by default
+
+overlays:
+  - id: base
+    rules:
+      - match: { tool: "fs.read*" }
+        action: allow_and_audit
+
+      - match: { tool: "fs.write*", side_effects: [write] }
+        action: assist:risk-assessment    # hand to AI risk scorer
+
+      - match: { tool: "shell.*", risk_tier: [4, 5] }
+        action: prompt                    # ask the user
+
+      - match: { tool: "payment.*" }
+        action: prompt
+        options: [allow_once, deny]       # no standing allows
+
+      - match: { tool: "email.send" }
+        action: assist:constitution       # check against your constitution doc
+```
+
+On a `deny` or `defer`, the wrapper raises `custos.exceptions.PermissionDenied`.
+For async frameworks (OpenAI Agents, Anthropic, MCP, AutoGen), use
+`AsyncGateway` — same pipeline, native-async.
+
+---
+
+## Custos vs. what exists
+
+| Approach | Autonomy | Safety | User fatigue | How Custos compares |
+|----------|----------|--------|--------------|---------------------|
+| **No guardrails** | Full | None | Zero | Custos adds a safety floor without breaking tool signatures |
+| **Manual review** | None | Maximum | Severe | Custos automates the routine; prompts only on high-risk calls |
+| **System prompts only** | Full | Brittle | Zero | Prompts are advice, not enforcement. Custos is a hard gate |
+| **[Janus](https://arxiv.org/abs/2607.01510)** | Configurable | Configurable | Configurable | Academic reference. Custos is a production-grade reimplementation |
+| **Custos** | Configurable | Configurable | Tunable (fatigue layer) | Policy floor + AI assistant + user prompt + audit, all in one |
+
+---
 
 ## Install
 
+The runtime has zero hard dependencies beyond `jsonschema`. Pick the extra that
+matches what you need:
+
 ```bash
-pip install "custos-middleware[yaml]"              # runtime + YAML policy loading (recommended)
-pip install custos-middleware                      # runtime only (programmatic policies, no YAML)
-pip install "custos-middleware[dev]"               # local development (pytest, ruff, mypy)
-pip install "custos-middleware[eval]"              # eval-harness parity stack (dev/test-only)
-pip install "custos-middleware[mcp]"               # MCP in-process adapter
-pip install "custos-middleware[openai-agents]"     # OpenAI Agents SDK adapter
-pip install "custos-middleware[anthropic]"         # Anthropic messages-API adapter
+# Start here — runtime-only, policy via Python dicts or YAML
+pip install "custos-middleware[yaml]"       # + PyYAML (recommended)
+pip install custos-middleware               # programmatic policies only
+
+# LLM-backed AI assistants (A3-A6, A9)
+pip install "custos-middleware[llm]"        # + LiteLLM
+
+# Framework adapters — pick your agent framework
+pip install "custos-middleware[langchain]"   # LangChain
+pip install "custos-middleware[mcp]"         # MCP in-process
+pip install "custos-middleware[openai-agents]"   # OpenAI Agents SDK
+pip install "custos-middleware[anthropic]"   # Anthropic messages API
+
+# Eval harness + CI test suites
+pip install "custos-middleware[eval]"        # google-adk, litellm (dev/test)
+
+# Local development
+pip install "custos-middleware[dev]"         # pytest, ruff, mypy
 ```
 
-### Extras
+All extras are additive: `pip install "custos-middleware[yaml,llm,langchain]"`.
 
-| Extra | Adds | When you need it |
-|---|---|---|
-| `custos-middleware` (no extra) | JSON-schema validator only | Programmatic `Policy.from_spec` |
-| `custos-middleware[yaml]` | PyYAML | `Policy.from_yaml("policy.yaml")` |
-| `custos-middleware[llm]` | LiteLLM | Remote-LLM assistants (A5/A6/A9) |
-| `custos-middleware[langchain]` | langchain-core | `Gateway.wrap(langchain_tools)` |
-| `custos-middleware[mcp]` | mcp>=1.14,<2 | `gated_tool(MCP_server, ...)` |
-| `custos-middleware[openai-agents]` | openai-agents>=0.18,<1 | `gated_function_tool(...)` |
-| `custos-middleware[anthropic]` | anthropic>=0.40,<1 | `gated_anthropic_tool(...)` |
-| `custos-middleware[eval]` | google-adk, litellm, mcp | `custos eval` + `custos audit replay` |
+### Which one do I need?
 
-> The **runtime** (embedded in an agent) has zero hard deps beyond `jsonschema`
-> . All LLM, YAML, adapter, and eval dependencies are optional extras.
+| You want to... | Install |
+|----------------|---------|
+| Try it out, read the docs | `custos-middleware[yaml]` |
+| Add LLM-powered risk scoring | add `[llm]` |
+| Protect a LangChain agent | add `[langchain]` |
+| Run the adversarial eval suite in CI | add `[eval]` |
+| Develop Custos itself | add `[dev]` |
 
-## Quick start
-
-```python
-from custos import Gateway, InMemoryFatigueLayer, Policy
-from custos.assistants import RulePolicy
-from custos.responders import CLIResponder
-
-policy = Policy.from_yaml("policy.yaml")
-gw = Gateway(policy=policy,
-    assistant=RulePolicy,
-    responder=CLIResponder(timeout=30),
-    fatigue=InMemoryFatigueLayer(dedup_ttl_s=300, max_per_minute=10),
-    audit_sink="audit.jsonl",)
-
-tools = gw.wrap(agent_tools)  # agent now sees identical signatures; gating is transparent
-```
-
-### Async runtime
-
-For native-async agent frameworks (MCP, OpenAI Agents, Anthropic), use
-`AsyncGateway` - the bridge contract lets you pass sync or async impls:
-
-```python
-import asyncio
-from custos import AsyncGateway, Policy
-
-gw = AsyncGateway(policy=Policy.from_yaml("policy.yaml"))
-
-async def main:
-    decision = await gw.decide(invocation)
-asyncio.run(main)
-```
-
-### Quorum / separation of duties
-
-For high-risk calls (e.g. `payment.*`), require multiple distinct approver
-roles via the `MultiApproverResponder`:
-
-```python
-from custos.responders import MultiApproverResponder
-
-multi = MultiApproverResponder(children=[finance_responder, security_responder],
-    child_roles=["finance", "security"],)
-# policy rule carries quorum: 2 + approver_roles: [finance, security]
-```
+---
 
 ## Components
 
-- **Policy engine** - deterministic ruleset evaluated before any LLM call .
-  Adapted in : factored shared ABAC operator primitives to
-  `custos.policy.operators` so the production engine + the eval-harness's
-  Janus-parity engine share one implementation (no dual-engine drift).
-- **Permission assistants** - pluggable `Assistant` implementations (A1-A11).  Implemented: A5 risk-assessment, A6 risk-assessment-autonomous,
-  A7 rule-policy, A8 summarize-batch, A9 context-adaptive, **A10 learned-policy**
-  (; per-user learned rules with disagreement-aware fallback),
-  **A11 delegation-aware** (; depth-tiered threshold scaling).
-- **Responders** - CLI / web / webhook / Slack / noop user-prompt backends
-  . Implemented: CLI (y/N/a/A/l/d), noop, webhook (HMAC + nonce +
-  timestamp), Slack (Block Kit + signed interactions), web widget (SSE).
-  **`MultiApproverResponder` ** for quorum + separation-of-duties
-  : `quorum: N` distinct approvers from disjoint roles.
-- **Async runtime ** - `AsyncGateway` + `AssistantAsync` /
-  `ResponderAsync` / `FatigueLayerAsync` Protocols. Native-async impls awaited
-  inline; sync impls bridged via `asyncio.to_thread`. Sync `Gateway` stays as
-  the compatibility surface for scripts + CLI.
-- **Fatigue layer** - batching, dedup, suppression, rate limits, ask-me-later
-  . `InMemoryFatigueLayer` with per-rule `batching` config.
-- **Audit sink** - structured, append-only decision log + `quorum_state` field
-  for compliance observability .
-- **Framework adapters** - in-process wrappers for:
-  - **MCP** (`custos-middleware[mcp]`) - `gated_tool` decorator + `wrap_mcp_tools` post-hoc
-    re-wrap; `FastMCP` servers.
-  - **OpenAI Agents** (`custos-middleware[openai-agents]`) - `gated_function_tool`
-    decorator + `wrap_openai_agent_tools`; produces model-visible tool errors
-    on deny.
-  - **Anthropic** (`custos-middleware[anthropic]`) - `gated_anthropic_tool` +
-    `wrap_anthropic_tool_handlers`; gates the handler side of the
-    messages-API dispatch loop.
-  - **LangChain** (`custos-middleware[langchain]`) - `wrap_langchain_tools`.
-- **Eval harness** - `custos eval` CI suite reproducing the Janus v1 parity
-  matrix  and a Custos-authored adversarial regression suite
-  . The adversarial suite covers N>=50 cells (expansion)
-  across prompt-injection, confused-deputy, tool-spoofing,
-  delegation-depth-abuse, learned-policy-poisoning, LLM-injection, and quorum,
-  with positive `ALLOW` controls . Default backend is local Ollama
-  (no API spend); HTML+JSON reports ; CI exit codes . Plus
-  `custos audit replay` for policy what-if analysis . See `eval/README.md`.
+Custos is assembled from interchangeable pieces. Wire what you need, skip what
+you don't.
 
-## Decision semantics
+### Policy engine
+A deterministic, pure-function rules engine. Write rules in YAML or construct
+them programmatically. First-match-wins, default-deny. Hot-reloadable.
+Supports tool-name globs, arg predicates, risk tiers, delegation depth,
+and side-effect matching. [Docs →](docs/policy.md)
 
-`Decision` enum: `allow`, `allow_once`, `allow_and_persist`, `deny`, `prompt`,
-`defer` . A policy `deny` is final - an assistant may only escalate
-strictness, never relax a denial (floor/ceiling invariant).
+### Permission assistants (A1–A11)
+Pluggable AI assistants that handle policy escalations. A1–A6 reproduce the
+Janus reference designs; A7–A11 are Custos extensions:
 
-The Janus-parity harness (under `custos.eval.harness`) uses its own
-`JanusAssistantVerdict` enum (`approve_once`, `create_policy`, `reject`) so
-parity CSV stays comparable to the published Janus numbers; the mapping is
-locked in `custos.policy.operators.to_custos_decision` and machine-checked
-in `tests/eval/test_janus_decision_mapping.py`.
+| ID | Name | Strategy | Needs LLM? |
+|----|------|----------|------------|
+| A1 | Auto-approve | Always yes. Baseline. | No |
+| A2 | User confirmation | Always ask. Maximum safety. | No |
+| A3 | Constitution | Check against a written constitution doc. | Yes |
+| A4 | Policy suggestion | Draft generalized ABAC rules for you. | Yes |
+| A5 | Risk assessment | Score risk against task goals; escalate to user. | Yes |
+| A6 | Risk assessment autonomous | Same as A5, but deny instead of prompting. | Yes |
+| A7 | Rule policy | Pure deterministic rules. Fast path. | No |
+| A8 | Summarize batch | Batch similar calls into one prompt. | No |
+| A9 | Context adaptive | Choose prompt granularity by sensitivity. | Yes |
+| A10 | Learned policy | Learn from your past decisions. | No |
+| A11 | Delegation aware | Stricter rules for deeper delegation chains. | No |
+
+[Docs →](docs/assistants.md)
+
+### Responders
+User-facing prompt backends. One gateway can route to different responders per
+tool or risk tier.
+
+- **CLI** — yn/A/a/L/d prompt in the terminal
+- **Noop** — silent deny (for CI/headless)
+- **Web** — SSE-backed web widget, embeddable
+- **Webhook** — HMAC-signed HTTP callbacks with nonce replay protection
+- **Slack** — Block Kit messages with signed interactions
+- **Multi-approver** — Quorum: requires N distinct approvers from disjoint roles
+
+[Docs →](docs/responders.md)
+
+### Fatigue layer
+Prevents prompt storms. Deduplicates repeated tool calls (SHA-256 args hash),
+batches similar calls into a single prompt, enforces per-minute rate limits,
+and supports "ask me later" via `defer`. [Docs →](docs/audit.md)
+
+### Audit
+Structured, append-only JSONL decision log. Every event records: what tool was
+called, by whom, what the policy said, what the assistant recommended, what you
+decided, and how long it took. Hash-chained mode adds tamper evidence with
+`custos audit verify`. Secret/PII fields in tool args are redacted before they
+reach the audit log or any responder. [Docs →](docs/audit.md)
+
+### Framework adapters
+In-process wrappers that make Custos transparent to the agent framework. The
+agent sees normal tool signatures; Custos sits inside as a gating layer.
+
+- **LangChain** — `wrap_langchain_tools(gw, agent.tools)`
+- **MCP** — `gated_tool` decorator and `wrap_mcp_tools` for FastMCP servers
+- **OpenAI Agents SDK** — `gated_function_tool` decorator
+- **Anthropic** — `gated_anthropic_tool` for the messages-API dispatch loop
+- **AutoGen, Google ADK, LlamaIndex** — v1.0 carry-forward adapters
+
+[Docs →](docs/adapters.md)
+
+### Eval harness
+`custos eval` CLI for CI. Two suites: (1) a Janus v1 parity matrix reproducing
+the published 72-cell evaluation, and (2) a Custos-authored adversarial suite
+(53+ cells covering prompt injection, confused deputy, tool spoofing,
+delegation abuse, policy poisoning, and quorum bypass). Default backend is
+local Ollama — no API spend. [Docs →](docs/eval.md)
+
+---
+
+## Relationship to Janus
+
+Janus (arXiv:2607.01510, Brigham et al., U. Washington) is the academic
+reference implementation that established the permission-assistant design space.
+It introduces the concept of plug-and-play permission assistants and the
+six-assistant catalog (Auto-Approve, User Confirmation, Constitution, Policy
+Suggestion, Risk Assessment, Risk Assessment Autonomous).
+
+**Custos** is an independent, production-grade reimplementation of the Janus
+concept. It is not affiliated with the Janus authors and does not vendor any
+Janus code (Apache-2.0). Key differences:
+
+- **Production runtime** — Zero hard deps beyond `jsonschema`. Janus depends on
+  Google ADK and LiteLLM.
+- **5 additional assistants** — A7 (rule-policy), A8 (summarize-batch), A9
+  (context-adaptive), A10 (learned-policy), A11 (delegation-aware).
+- **6 decision types** — Janus has 3 (approve_once / create_policy / reject).
+  Custos adds `allow`, `prompt`, and `defer`.
+- **Cross-language** — Python SDK, TypeScript SDK (`@taqiy/custos-core`), and a
+  gRPC sidecar for out-of-process deployment.
+- **Audit tamper evidence** — Hash-chained JSONL with HMAC signing and
+  `custos audit verify`.
+- **Deterministic policy engine** — Pure, no side effects, hot-reloadable.
+  Janus policy is runtime-coupled to the ADK session.
+
+---
 
 ## License
 
-Apache-2.0. See `LICENSE`.
+Apache-2.0. See [LICENSE](LICENSE).
+
+---
+
+## Documentation
+
+| Document | What it covers |
+|----------|---------------|
+| [Quickstart](docs/quickstart.md) | 5-line integration, policy YAML, audit log |
+| [Tutorial](docs/tutorial.md) | 20-30 minute walk from zero to gated agent |
+| [Policy schema](docs/policy.md) | Full YAML reference: match criteria, actions, overlays |
+| [Policy cookbook](docs/cookbook/index.md) | 5 runnable recipes for common patterns |
+| [Assistant catalog](docs/assistants.md) | A1-A11 with `exfiltrates_args` flags |
+| [Responder reference](docs/responders.md) | CLI, web, Slack, webhook, multi-approver |
+| [Audit reference](docs/audit.md) | Sinks, hash-chaining, `custos audit verify` |
+| [Eval harness](docs/eval.md) | Janus-v1 parity + adversarial CI suites |
+| [Adapters](docs/adapters.md) | Per-framework integration details |
+| [Sidecar (gRPC)](docs/sidecar.md) | Cross-language deployment surface |
+| [Threat model](docs/THREAT_MODEL.md) | Normative: every mapped to a STRIDE threat |
+| [IR contract](IR_CONTRACT.md) | Cross-language pinning: Python-TS byte parity |
+| [Changelog](CHANGELOG.md) | Phased release history |
+| [Contributing](CONTRIBUTING.md) | Code style, runtime-dep discipline, test policy |
+| [Security](SECURITY.md) | Vulnerability disclosure policy |

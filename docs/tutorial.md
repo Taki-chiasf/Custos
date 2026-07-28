@@ -86,10 +86,10 @@ gw = Gateway(policy=policy,
 set_default_context(SubjectContext(user_id="alice", goal_id="onboarding"))
 ```
 
-The decision pipeline is defined in sec 9.2 and the [Quickstart](quickstart.md#the-decision-pipeline):
+The decision pipeline (detailed in the [Quickstart](quickstart.md#the-decision-pipeline)):
 
 1. Parse the invocation.
-2. Policy evaluation (deterministic, pure —).
+2. Policy evaluation (deterministic, pure).
 3. If `ASSIST`: invoke the named permission assistant (the only allowed source
    of non-determinism).
 4. If `PROMPT`: hand a redacted request to the responder (CLI / web / webhook

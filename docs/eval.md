@@ -45,7 +45,7 @@ Key features:
   regressions; verifies the floor height works both directions).
 - LLM-injection cells driving a production `Gateway` with a
   `FunctionLLMClient` stub returning a "low-risk allow" from injected
-  assistant reasoning — asserts sec 15 escalation holds (DENY regardless).
+  assistant reasoning — asserts the floor invariant holds (DENY regardless).
 - A `tool_spoofing` allow-control proving the gateway evaluates on
   `invocation.tool` (not a lying descriptor label).
 
