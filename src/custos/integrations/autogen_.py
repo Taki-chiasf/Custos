@@ -129,12 +129,12 @@ def wrap_autogen_tools(
         handlers: ``{tool_name: handler}`` map the host dispatches on
             AutoGen tool calls.
         descriptors: optional per-tool :class:`ToolDescriptor` overrides;
-            absent tools get a minimal ``risk_tier=1`` descriptor.
+            absent tools get a minimal ``risk_tier=3`` descriptor.
     """
     descriptors = descriptors or {}
     out: dict[str, Callable[..., Any]] = {}
     for name, handler in handlers.items():
-        descriptor = descriptors.get(name) or ToolDescriptor(name=name, risk_tier=1)
+        descriptor = descriptors.get(name) or ToolDescriptor(name=name, risk_tier=3)
         out[name] = _make_gated_autogen_callable(name, descriptor, gateway, handler)
     return out
 
@@ -220,3 +220,7 @@ def _make_gated_autogen_callable(
 
     gated.__custos_descriptor__ = descriptor  # type: ignore[attr-defined]
     return gated
+
+
+gated_tool = gated_autogen_tool
+wrap_tools = wrap_autogen_tools

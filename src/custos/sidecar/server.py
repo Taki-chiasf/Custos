@@ -504,7 +504,8 @@ class GatewayServicer:
         # Build a synthetic AuditEvent the caller persists locally so the
         #  anomaly is observable. The `ts_unix_ms` is the current time.
         audit_proto = AuditEvent()
-        audit_proto.ts_unix_ms = int(time.time() * 1000)
+        ts_ms = int(time.time() * 1000)
+        audit_proto.ts_unix_ms = ts_ms
         if request.HasField("invocation"):
             audit_proto.invocation.tool = request.invocation.tool
             audit_proto.invocation.request_id = request.invocation.request_id
@@ -513,6 +514,29 @@ class GatewayServicer:
         audit_proto.risk_score = risk_score
         audit_proto.subject.user_id = "anonymous"
         audit_proto.schema_version = "1.0"
+
+        # Emit the auth-failure event to the operator's audit sink so server-side
+        # operators have observability of all auth-boundary rejections.
+        py_event = PyAuditEvent(
+            ts_unix_ms=ts_ms,
+            invocation=PyInvocation(
+                tool=request.invocation.tool if request.HasField("invocation") else "",
+                args={},
+                context=PySubjectContext(user_id="anonymous"),
+                request_id=request.invocation.request_id
+                if request.HasField("invocation")
+                else None,
+            ),
+            decision=PyDecision.DENY,
+            policy_match="sidecar:auth-boundary",
+            assistant=None,
+            risk_score=risk_score,
+            reasoning=reasoning,
+            responder=None,
+            latency_ms=0,
+            subject=PySubjectContext(user_id="anonymous"),
+        )
+        self._capturing_sink.emit(py_event)
 
         resp = DecideResponse()
         resp.decision = decision_proto

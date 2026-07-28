@@ -133,12 +133,12 @@ def wrap_anthropic_tool_handlers(
         handlers: ``{tool_name: handler}`` map the host dispatches on
             ``tool_use`` blocks.
         descriptors: optional per-tool :class:`ToolDescriptor` overrides;
-            absent tools get a minimal ``risk_tier=1`` descriptor.
+            absent tools get a minimal ``risk_tier=3`` descriptor.
     """
     descriptors = descriptors or {}
     out: dict[str, Callable[..., Any]] = {}
     for name, handler in handlers.items():
-        descriptor = descriptors.get(name) or ToolDescriptor(name=name, risk_tier=1)
+        descriptor = descriptors.get(name) or ToolDescriptor(name=name, risk_tier=3)
         out[name] = _make_gated_anthropic_handler(name, descriptor, gateway, handler)
     return out
 
@@ -252,3 +252,7 @@ def _make_gated_anthropic_handler(
 
     gated_handler.__custos_descriptor__ = descriptor  # type: ignore[attr-defined]
     return gated_handler
+
+
+gated_tool = gated_anthropic_tool
+wrap_tools = wrap_anthropic_tool_handlers

@@ -148,3 +148,29 @@ python examples/demo.py --audit /tmp/custos-audit.jsonl
 
 Runs three invocations exercising allow / assist->allow_once / prompt->deny
 with the rule-policy assistant and the noop responder. No API key needed.
+
+## For Async Agents
+
+When integrating with async frameworks (OpenAI Agents SDK, Anthropic, AutoGen,
+Google ADK, LlamaIndex, MCP), use :class:`AsyncGateway` instead:
+
+```python
+from custos import AsyncGateway, Policy
+from custos.responders import CLIResponder
+
+policy = Policy.from_yaml("policy.yaml")
+gw = AsyncGateway(policy=policy, responder=CLIResponder())
+
+# Wrap async-native tools via the framework adapter:
+from custos.integrations.openai_agents import wrap_openai_agent_tools
+gated_tools = wrap_openai_agent_tools(gw, agent.tools)
+```
+
+The ``AsyncGateway`` runs the full 8-step decision pipeline without blocking the
+event loop. It accepts both sync and async assistants/responders/fatigue layers:
+native-async implementations are awaited directly; sync ones are bridged via
+``asyncio.to_thread``.
+
+All six adapters (MCP, OpenAI Agents, Anthropic, AutoGen, Google ADK,
+LlamaIndex) ship with ``wrap_*_tools`` helpers that accept an ``AsyncGateway``
+and return async gated proxies. See `adapters.md` for per-framework examples.

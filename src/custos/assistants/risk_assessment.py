@@ -71,6 +71,8 @@ class RiskAssessment(AssistantBase):
             self.goals = [str(g) for g in parsed if _is_scalar(g)]
         elif isinstance(parsed, dict) and "goals" in parsed:
             self.goals = [str(g) for g in parsed["goals"] if _is_scalar(g)]
+        else:
+            self.goals = []
 
     def decide(self, inv: Invocation, ctx: SubjectContext) -> AssistantOutput:
         risk, reason = self._judge_tool_call(inv.tool, inv.args)

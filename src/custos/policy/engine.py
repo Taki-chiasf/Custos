@@ -103,6 +103,7 @@ class Policy:
     ) -> None:
         self._lock = threading.RLock()
         self._rules: list[Rule] = list(rules or [])
+        self._rules_ro: tuple[Rule, ...] = tuple(self._rules)
         self._persisted_rules: list[Rule] = []
         if default not in ("deny", "allow"):
             raise PolicyValidationError(f"default must be 'deny' or 'allow', got {default!r}")
@@ -167,9 +168,7 @@ class Policy:
         """First-match-wins evaluation . Pure + deterministic ."""
         env = inv.context.extra.get("env") if inv.context.extra else None
         env_str = env if isinstance(env, str) else None
-        with self._lock:
-            rules_snapshot = tuple(self._rules)
-        for rule in rules_snapshot:
+        for rule in self._rules_ro:
             if not rule.applies_to_context(
                 user_id=inv.context.user_id,
                 goal_id=inv.context.goal_id,
@@ -189,9 +188,7 @@ class Policy:
         """
         env = inv.context.extra.get("env") if inv.context.extra else None
         env_str = env if isinstance(env, str) else None
-        with self._lock:
-            rules_snapshot = tuple(self._rules)
-        for rule in rules_snapshot:
+        for rule in self._rules_ro:
             if not rule.applies_to_context(
                 user_id=inv.context.user_id,
                 goal_id=inv.context.goal_id,
@@ -213,6 +210,7 @@ class Policy:
         """
         with self._lock:
             self._rules.append(rule)
+            self._rules_ro = tuple(self._rules)
 
     def insert_rule(self, index: int, rule: Rule) -> None:
         """Insert a rule at ``index``, pushing existing rules down .
@@ -226,6 +224,7 @@ class Policy:
         """
         with self._lock:
             self._rules.insert(index, rule)
+            self._rules_ro = tuple(self._rules)
 
     def track_persisted_rule(self, rule: Rule) -> None:
         """Record a rule persisted by an assistant (``allow_and_persist``, H6).
@@ -271,6 +270,7 @@ class Policy:
             self._overlays = new_policy._overlays
             self._source_mtime = mtime
             self._rules.extend(self._persisted_rules)
+            self._rules_ro = tuple(self._rules)
         return True
 
     def overlays(self) -> Sequence[PolicyOverlaySpec]:
@@ -284,8 +284,7 @@ class Policy:
 
     @property
     def rules(self) -> Sequence[Rule]:
-        with self._lock:
-            return tuple(self._rules)
+        return self._rules_ro
 
 
 def _action_to_outcome(action: str) -> PolicyOutcome:

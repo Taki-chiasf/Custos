@@ -145,7 +145,7 @@ def wrap_adk_tools(
         tools: list of ADK tools; only ``FunctionTool`` instances are
             gated, others are passed through.
         descriptors: optional per-tool :class:`ToolDescriptor` overrides
-            keyed by tool name; absent tools get a minimal ``risk_tier=1``
+            keyed by tool name; absent tools get a minimal ``risk_tier=3``
             descriptor.
     """
     descriptors = descriptors or {}
@@ -165,7 +165,7 @@ def wrap_adk_tools(
             out.append(tool)
             continue
         name = getattr(tool, "name", None) or original_fn.__name__
-        descriptor = descriptors.get(name) or ToolDescriptor(name=name, risk_tier=1)
+        descriptor = descriptors.get(name) or ToolDescriptor(name=name, risk_tier=3)
         gated = _make_gated_async_fn(original_fn, name, descriptor, gateway)
         gated_tool = FunctionTool(
             gated,
@@ -225,3 +225,7 @@ def _bind_args(
         merged = dict(kwargs)
         merged.update(dict(zip(inspect.signature(fn).parameters, args, strict=False)))
         return merged
+
+
+gated_tool = gated_adk_tool
+wrap_tools = wrap_adk_tools

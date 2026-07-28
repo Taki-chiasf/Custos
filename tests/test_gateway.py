@@ -604,3 +604,205 @@ def test_allow_external_data_non_bool_rejected(tmp_path: Path) -> None:
     )
     with pytest.raises(PolicyValidationError):
         Policy.from_yaml(str(yml))
+
+
+# --------------------------------------------------------------------------- #
+# helper functions from gateway module (unit tests for new/refactored code)
+# --------------------------------------------------------------------------- #
+
+
+def test_evaluate_with_match_no_rule_matches_default_deny() -> None:
+    from custos.gateway import _evaluate_with_match
+    from custos.policy.engine import _action_to_outcome
+
+    pol = _policy([])
+    outcome, label, matched = _evaluate_with_match(pol, _inv())
+    assert outcome == _action_to_outcome("deny")
+    assert label == "default:deny"
+    assert matched is None
+
+
+def test_evaluate_with_match_no_rule_matches_default_allow() -> None:
+    from custos.gateway import _evaluate_with_match
+    from custos.policy.engine import _action_to_outcome
+
+    pol = _policy([], default="allow")
+    outcome, label, matched = _evaluate_with_match(pol, _inv())
+    assert outcome == _action_to_outcome("allow")
+    assert label == "default:allow"
+    assert matched is None
+
+
+def test_evaluate_with_match_first_rule_matches() -> None:
+    from custos.gateway import _evaluate_with_match
+
+    pol = _policy([PolicyRuleSpec(match={"tool": "fs.read"}, action="allow")])
+    outcome, label, matched = _evaluate_with_match(pol, _inv(tool="fs.read"))
+    assert outcome is not None
+    assert label == "base:allow"
+    assert matched is not None
+
+
+def test_resolve_policy_match_no_rule_matches() -> None:
+    from custos.gateway import _resolve_policy_match
+
+    pol = _policy([])
+    assert _resolve_policy_match(pol, _inv()) == "default:deny"
+
+
+def test_resolve_batching_fallback_when_matched_none() -> None:
+    from custos.gateway import _resolve_batching
+
+    pol = _policy(
+        [PolicyRuleSpec(match={"tool": "fs.read"}, action="prompt", batching={"max_delay_s": 10})]
+    )
+    result = _resolve_batching(pol, _inv(tool="fs.read"), matched=None)
+    assert result is not None
+    assert result["max_delay_s"] == 10
+
+
+def test_resolve_quorum_fallback_when_matched_none() -> None:
+    from custos.gateway import _resolve_quorum
+
+    pol = _policy(
+        [
+            PolicyRuleSpec(
+                match={"tool": "fs.read"},
+                action="prompt",
+                quorum=2,
+                approver_roles=["admin", "manager"],
+                approver_allowlist=["alice"],
+            )
+        ]
+    )
+    result = _resolve_quorum(pol, _inv(tool="fs.read"), matched=None)
+    assert result is not None
+    assert result["quorum"] == 2
+    assert "admin" in result["approver_roles"]
+    assert "alice" in result["approver_allowlist"]
+
+
+def test_infer_quorum_state_fallback_when_matched_none() -> None:
+    from custos.gateway import _infer_quorum_state
+
+    pol = _policy(
+        [
+            PolicyRuleSpec(
+                match={"tool": "fs.read"},
+                action="prompt",
+                quorum=2,
+                approver_roles=["admin", "manager"],
+            )
+        ]
+    )
+    state = _infer_quorum_state(pol, _inv(tool="fs.read"), Decision.ALLOW, matched=None)
+    assert state == "met"
+
+
+def test_infer_quorum_state_from_decision_defer_pending() -> None:
+    from custos.gateway import _infer_quorum_state_from_decision
+
+    assert _infer_quorum_state_from_decision(Decision.DEFER) == "pending"
+
+
+def test_infer_quorum_state_from_decision_deny_failed() -> None:
+    from custos.gateway import _infer_quorum_state_from_decision
+
+    assert _infer_quorum_state_from_decision(Decision.DENY) == "failed"
+
+
+def test_infer_quorum_state_from_decision_allow_met() -> None:
+    from custos.gateway import _infer_quorum_state_from_decision
+
+    assert _infer_quorum_state_from_decision(Decision.ALLOW) == "met"
+
+
+def test_has_secret_args_descriptor_none() -> None:
+    from custos.gateway import _has_secret_args
+
+    assert _has_secret_args(None) is False
+
+
+def test_has_secret_args_pii_side_effect() -> None:
+    from custos.gateway import _has_secret_args
+
+    desc = _desc(side=frozenset([SideEffect.PII]))
+    assert _has_secret_args(desc) is True
+
+
+def test_has_secret_args_schema_secret() -> None:
+    from custos.gateway import _has_secret_args
+
+    desc = _desc(schema={"properties": {"token": {"secret": True}}})
+    assert _has_secret_args(desc) is True
+
+
+def test_has_secret_args_schema_format_password() -> None:
+    from custos.gateway import _has_secret_args
+
+    desc = _desc(schema={"properties": {"pw": {"format": "password"}}})
+    assert _has_secret_args(desc) is True
+
+
+def test_has_secret_args_no_secrets() -> None:
+    from custos.gateway import _has_secret_args
+
+    desc = _desc(schema={"properties": {"name": {"type": "string"}}})
+    assert _has_secret_args(desc) is False
+
+
+def test_persist_assistant_rule_deny_shadow_with_fn_match() -> None:
+    """A later deny rule whose tool pattern fnmatches the persisted tool blocks persistence."""
+    from custos.gateway import _persist_assistant_rule_impl
+
+    pol = _policy(
+        [
+            PolicyRuleSpec(match={"tool": "fs.*"}, action="assist:fake"),
+            PolicyRuleSpec(match={"tool": "fs.read"}, action="deny"),
+        ]
+    )
+    persist = {"action": "allow", "match": {"tool": "fs.read"}}
+    _persist_assistant_rule_impl(pol, persist, _inv(tool="fs.write"))
+    rules = list(pol.rules)
+    assert len(rules) == 2  # no rule added because shadowed
+
+
+def test_persist_assistant_rule_deny_any_tool_blocks() -> None:
+    """A later deny rule with no tool constraint blocks any tool persistence."""
+    from custos.gateway import _persist_assistant_rule_impl
+
+    pol = _policy(
+        [
+            PolicyRuleSpec(match={"tool": "admin.*"}, action="assist:fake"),
+            PolicyRuleSpec(match={}, action="deny"),
+        ]
+    )
+    persist = {"action": "allow", "match": {"tool": "admin.drop"}}
+    _persist_assistant_rule_impl(pol, persist, _inv(tool="admin.drop"))
+    rules = list(pol.rules)
+    assert len(rules) == 2  # no rule added because shadowed by tool-less deny
+
+
+def test_reload_policy_clears_fatigue_cache(tmp_path: Path) -> None:
+    import time
+
+    import pytest
+
+    pytest.importorskip("yaml")
+    from custos.fatigue import InMemoryFatigueLayer
+    from custos.gateway import Gateway
+
+    yml = tmp_path / "p.yaml"
+    yml.write_text(
+        "version: 1\ndefault: deny\noverlays:\n  - id: base\n    rules: []\n", encoding="utf-8"
+    )
+    pol = Policy.from_yaml(str(yml))
+    fatigue = InMemoryFatigueLayer()
+    gw = Gateway(policy=pol, fatigue=fatigue, audit_sink=NullAuditSink())
+    # Touch the file with a newer mtime so reload actually reads it.
+    time.sleep(0.01)
+    yml.write_text(
+        "version: 1\ndefault: allow\noverlays:\n  - id: base\n    rules: []\n", encoding="utf-8"
+    )
+    result = gw.reload_policy()
+    assert result is True

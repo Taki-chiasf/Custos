@@ -165,7 +165,7 @@ def wrap_openai_agent_tools(
         tools: list of OpenAI Agents tools; only :class:`FunctionTool`
             instances are gated, others are passed through.
         descriptors: optional per-tool :class:`ToolDescriptor` overrides
-            keyed by tool name; absent tools get a minimal ``risk_tier=1``
+            keyed by tool name; absent tools get a minimal ``risk_tier=3``
             descriptor.
     """
     descriptors = descriptors or {}
@@ -179,7 +179,7 @@ def wrap_openai_agent_tools(
         if not isinstance(tool, FunctionTool):
             out.append(tool)
             continue
-        descriptor = descriptors.get(tool.name) or ToolDescriptor(name=tool.name, risk_tier=1)
+        descriptor = descriptors.get(tool.name) or ToolDescriptor(name=tool.name, risk_tier=3)
         # The SDK's on_invoke_tool is a _FailureHandlingFunctionToolInvoker
         # carrying ``_invoke_tool_impl`` (the raw invoker) + the failure
         # wrapper. Wrap the inner impl so the failure wrapper still catches
@@ -311,3 +311,7 @@ def _bind_args(
         merged = dict(kwargs)
         merged.update(dict(zip(inspect.signature(fn).parameters, args, strict=False)))
         return merged
+
+
+gated_tool = gated_function_tool
+wrap_tools = wrap_openai_agent_tools

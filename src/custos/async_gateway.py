@@ -42,11 +42,11 @@ from typing import TYPE_CHECKING, Any, cast
 from custos.assistants.base import AssistantRegistry
 from custos.gateway import (
     _apply_assistant_output_impl,
+    _evaluate_with_match,
     _exfiltrates_restricted,
     _infer_quorum_state,
     _resolve_audit_sink,
     _resolve_batching,
-    _resolve_policy_match,
     _resolve_quorum,
 )
 from custos.policy import Policy
@@ -126,6 +126,7 @@ class AsyncGateway:
         self.default_timeout_ms = default_timeout_ms
         self.local_only = local_only
         self._audit = _resolve_audit_sink(audit_sink)
+        self.last_event: AuditEvent | None = None
 
         registry = AssistantRegistry(local_only=local_only)
         if assistants:
@@ -148,9 +149,8 @@ class AsyncGateway:
         request_id = inv.request_id or uuid.uuid4().hex
 
         # 1. Parse - already structured in ``inv``.
-        # 2. Policy evaluation (deterministic, pure, thread-safe) — inline.
-        outcome = self.policy.evaluate(inv)
-        policy_match = _resolve_policy_match(self.policy, inv)
+        # 2. Policy evaluation (deterministic, pure, thread-safe) + resolve match in one scan.
+        outcome, policy_match, matched = _evaluate_with_match(self.policy, inv)
 
         # 3. Floor/ceiling : policy DENY/ALLOW short-circuit before the
         #    try block so their audit events are always emitted directly.
@@ -208,7 +208,6 @@ class AsyncGateway:
 
         try:
             if outcome == PolicyOutcome.ASSIST:
-                matched = self.policy.matched_rule(inv)
                 assistant_name_raw = matched.action if matched else "assist"
                 _, sep, name_suffix = assistant_name_raw.partition(":")
                 resolved = (
@@ -250,7 +249,7 @@ class AsyncGateway:
             # 5. PROMPT: fatigue seam B then responder.
             if decision == Decision.PROMPT:
                 if self.fatigue is not None:
-                    batching_config = _resolve_batching(self.policy, inv)
+                    batching_config = _resolve_batching(self.policy, inv, matched)
                     fd = await _call_method(
                         self.fatigue,
                         "before_prompt",
@@ -263,7 +262,8 @@ class AsyncGateway:
                     if fd.reasoning:
                         reasoning = f"{reasoning} | {fd.reasoning}"
                 if decision == Decision.PROMPT:
-                    quorum_cfg = _resolve_quorum(self.policy, inv)
+                    quorum_cfg = _resolve_quorum(self.policy, inv, matched)
+                    fatigue_cacheable = True
                     response = await self._route_prompt(
                         inv, request_id, risk, reasoning, quorum_cfg=quorum_cfg
                     )
@@ -273,7 +273,7 @@ class AsyncGateway:
 
         except Exception as exc:
             decision = Decision.DENY
-            reasoning = f"gateway error: {exc}"
+            reasoning = f"gateway error: {type(exc).__name__}"
             risk = 1.0
             response = None
             fatigue_cacheable = False
@@ -295,7 +295,7 @@ class AsyncGateway:
                 reasoning=reasoning,
                 responder=getattr(self.responder, "name", None) if self.responder else None,
                 approver=response.approver if response else None,
-                quorum_state=_infer_quorum_state(self.policy, inv, decision),
+                quorum_state=_infer_quorum_state(self.policy, inv, decision, matched),
             )
             if self.fatigue is not None:
                 with suppress(Exception):
@@ -394,6 +394,7 @@ class AsyncGateway:
             quorum_state=quorum_state,
         )
         self._audit.emit(event)
+        self.last_event = event
 
     def wrap(self, tools: Any) -> list[Any]:
         """Wrap an agent's tool registry so every call is gated (US-1).
@@ -449,7 +450,15 @@ class AsyncGateway:
                 )
                 decision = await gw.decide(inv)
                 if decision in (Decision.DENY, Decision.DEFER):
-                    raise PermissionDenied(name, decision.value)
+                    last = gw.last_event
+                    raise PermissionDenied(
+                        name,
+                        decision.value,
+                        reasoning=last.reasoning if last else "",
+                        risk=last.risk_score if last else 0.0,
+                        policy_match=last.policy_match if last else None,
+                        assistant=last.assistant if last else None,
+                    )
                 res = tool(*args, **kwargs)
                 if inspect.isawaitable(res):
                     return await res
@@ -460,7 +469,7 @@ class AsyncGateway:
         wrapped: list[Any] = []
         for tool in tools:
             py_name = getattr(tool, "__name__", None) or repr(tool)
-            descriptor = descriptors.get(py_name) or ToolDescriptor(name=py_name, risk_tier=1)
+            descriptor = descriptors.get(py_name) or ToolDescriptor(name=py_name, risk_tier=3)
             tool_name = descriptor.name or py_name
             wrapped.append(_make_proxy(tool, tool_name, descriptor))
         return wrapped

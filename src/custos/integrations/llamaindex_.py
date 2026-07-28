@@ -142,7 +142,7 @@ def wrap_llamaindex_tools(
         tools: list of LlamaIndex tools; only ``FunctionTool`` instances are
             gated, others are passed through.
         descriptors: optional per-tool :class:`ToolDescriptor` overrides
-            keyed by tool name; absent tools get a minimal ``risk_tier=1``
+            keyed by tool name; absent tools get a minimal ``risk_tier=3``
             descriptor.
     """
     descriptors = descriptors or {}
@@ -166,7 +166,7 @@ def wrap_llamaindex_tools(
             out.append(tool)
             continue
         name = getattr(tool.metadata, "name", None) or original_fn.__name__
-        descriptor = descriptors.get(name) or ToolDescriptor(name=name, risk_tier=1)
+        descriptor = descriptors.get(name) or ToolDescriptor(name=name, risk_tier=3)
         gated = _make_gated_async_fn(original_fn, name, descriptor, gateway)
         out.append(
             FunctionTool.from_defaults(
@@ -227,3 +227,7 @@ def _bind_args(
         merged = dict(kwargs)
         merged.update(dict(zip(inspect.signature(fn).parameters, args, strict=False)))
         return merged
+
+
+gated_tool = gated_llamaindex_tool
+wrap_tools = wrap_llamaindex_tools

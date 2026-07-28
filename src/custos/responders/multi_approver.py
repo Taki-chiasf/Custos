@@ -228,17 +228,22 @@ class MultiApproverResponder:
         decision wins; DEFER means try the next child; all DEFER → DEFER."""
         tasks = [asyncio.ensure_future(_await_child(c, "prompt", req)) for c in self.children]
         try:
-            for task in asyncio.as_completed(tasks):
-                try:
-                    resp = cast(PromptResponse, await task)
-                except Exception:
-                    continue
-                if resp.choice == Decision.DEFER:
-                    continue
-                return resp
-            # All children returned DEFER (or errored) → DEFER pending.
+            try:
+                for task in asyncio.as_completed(tasks):
+                    try:
+                        resp = cast(
+                            PromptResponse,
+                            await asyncio.wait_for(task, timeout=self.timeout),
+                        )
+                    except (asyncio.TimeoutError, Exception):
+                        continue
+                    if resp.choice == Decision.DEFER:
+                        continue
+                    return resp
+            except Exception:
+                return PromptResponse(choice=Decision.DENY)
+            # All children returned DEFER (or errored/timed out) → DEFER pending.
             return PromptResponse(choice=Decision.DEFER)
-        except Exception:
+        finally:
             for t in tasks:
                 t.cancel()
-            return PromptResponse(choice=Decision.DENY)

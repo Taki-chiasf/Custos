@@ -182,7 +182,7 @@ def wrap_mcp_tools(
         gateway: an :class:`AsyncGateway`.
         mcp_server: a ``FastMCP`` server with at least one registered tool.
         descriptors: optional per-tool :class:`ToolDescriptor` overrides
-            (keyed by tool name); absent tools get a minimal ``risk_tier=1``
+            (keyed by tool name); absent tools get a minimal ``risk_tier=3``
             descriptor.
     """
     descriptors = descriptors or {}
@@ -201,7 +201,7 @@ def wrap_mcp_tools(
     wrapped_names: list[str] = []
     for name, tool in tools.items():
         original_fn = tool.fn
-        descriptor = descriptors.get(name) or ToolDescriptor(name=name, risk_tier=1)
+        descriptor = descriptors.get(name) or ToolDescriptor(name=name, risk_tier=3)
         gated = _make_gated_async(original_fn, name, descriptor, gateway)
 
         # Re-register via the manager's add_tool so Tool.from_function re-runs
@@ -282,3 +282,7 @@ def _bind_args(
         merged = dict(kwargs)
         merged.update(dict(zip(inspect.signature(fn).parameters, args, strict=False)))
         return merged
+
+
+# Consistent alias — the canonical ``gated_tool`` is already the primary name.
+wrap_tools = wrap_mcp_tools

@@ -14,6 +14,7 @@ import hashlib
 import hmac
 import json
 import sys
+import threading
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -173,22 +174,65 @@ class HashChainedAuditSink(AuditSink):
     ) -> None:
         self.path = str(path)
         self.signing_key = signing_key
+        self._lock = threading.Lock()
+        self._last_hash: str | None = None
+
+    def _get_prev_hash(self) -> str:
+        """Return the ``prev_hash`` the next line should reference.
+
+        Uses an instance-level cache (``_last_hash``) on subsequent calls
+        to avoid O(n) backward scans for long-running agents. Initialised
+        from the last line of the file on first emit; falls back to
+        :data:`GENESIS_HASH` when the file is empty or missing.
+        """
+        if self._last_hash is not None:
+            return self._last_hash
+        # Initialise from disk — read only the last ~4KB of the file.
+        try:
+            with open(self.path, "rb") as fh:
+                fh.seek(0, 2)
+                size = fh.tell()
+                if size == 0:
+                    self._last_hash = GENESIS_HASH
+                    return GENESIS_HASH
+                pos = max(0, size - 4096)
+                fh.seek(pos)
+                chunk = fh.read()
+                lines = chunk.splitlines()
+                last_line = b""
+                for line in reversed(lines):
+                    if line.strip():
+                        last_line = line
+                        break
+                if not last_line.strip():
+                    self._last_hash = GENESIS_HASH
+                    return GENESIS_HASH
+                self._last_hash = hashlib.sha256(last_line).hexdigest()
+                return self._last_hash
+        except FileNotFoundError:
+            self._last_hash = GENESIS_HASH
+            return GENESIS_HASH
 
     def emit(self, event: AuditEvent) -> None:
-        prev_hash = _last_prev_hash(self.path)
-        envelope: dict[str, object] = {
-            "schema_version": "1.0",
-            "prev_hash": prev_hash,
-            "event": event.to_dict(),
-        }
-        if self.signing_key is not None:
-            unsigned = json.dumps(envelope, sort_keys=True, default=_json_default)
-            sig = hmac.new(self.signing_key, unsigned.encode("utf-8"), hashlib.sha256).hexdigest()
-            envelope["sig"] = sig
-        line = json.dumps(envelope, sort_keys=True, default=_json_default)
-        with open(self.path, "a", encoding="utf-8") as fh:
-            fh.write(line)
-            fh.write("\n")
+        with self._lock:
+            prev_hash = self._get_prev_hash()
+            envelope: dict[str, object] = {
+                "schema_version": "1.0",
+                "prev_hash": prev_hash,
+                "event": event.to_dict(),
+            }
+            if self.signing_key is not None:
+                unsigned = json.dumps(envelope, sort_keys=True, default=_json_default)
+                sig = hmac.new(
+                    self.signing_key, unsigned.encode("utf-8"), hashlib.sha256
+                ).hexdigest()
+                envelope["sig"] = sig
+            line = json.dumps(envelope, sort_keys=True, default=_json_default)
+            with open(self.path, "a", encoding="utf-8") as fh:
+                fh.write(line)
+                fh.write("\n")
+            # Cache the hash of the line we just wrote for the next emit.
+            self._last_hash = hashlib.sha256(line.encode("utf-8")).hexdigest()
 
 
 def _last_prev_hash(path: str) -> str:

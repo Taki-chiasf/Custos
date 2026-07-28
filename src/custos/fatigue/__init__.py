@@ -145,7 +145,12 @@ class InMemoryFatigueLayer:
             rate_limit = int(batching["max_per_minute"])
         if rate_limit > 0:
             key = self._rate_key(inv)
+            current_bucket = key[1]
             with self._lock:
+                # Prune expired buckets to prevent unbounded memory growth.
+                expired = [k for k in list(self._rate) if k[1] < current_bucket]
+                for k in expired:
+                    self._rate.pop(k, None)
                 count = self._rate.get(key, 0) + 1
                 self._rate[key] = count
             if count > rate_limit:

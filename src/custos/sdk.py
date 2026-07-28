@@ -76,8 +76,8 @@ def wrap_callables(
 
 
 def _minimal_descriptor(name: str) -> ToolDescriptor:
-    """Build a minimal risk_tier=1 descriptor for tools without one."""
-    return ToolDescriptor(name=name, risk_tier=1)
+    """Build a minimal risk_tier=3 descriptor for tools without one."""
+    return ToolDescriptor(name=name, risk_tier=3)
 
 
 def _minimal_signature_args(
@@ -126,7 +126,15 @@ def _wrap_one(
         )
         decision = gateway.decide(inv)
         if decision in (Decision.DENY, Decision.DEFER):
-            raise PermissionDenied(name, decision.value)
+            last = gateway.last_event
+            raise PermissionDenied(
+                name,
+                decision.value,
+                reasoning=last.reasoning if last else "",
+                risk=last.risk_score if last else 0.0,
+                policy_match=last.policy_match if last else None,
+                assistant=last.assistant if last else None,
+            )
         return tool(*args, **kwargs)
 
     return proxy

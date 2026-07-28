@@ -85,4 +85,8 @@ def _make_gated_fn(
 
 
 def _minimal_descriptor(name: str) -> ToolDescriptor:
-    return ToolDescriptor(name=name, risk_tier=1)
+    return ToolDescriptor(name=name, risk_tier=3)
+
+
+wrap_langchain_tools._custos_alias = True  # type: ignore[attr-defined]
+wrap_tools = wrap_langchain_tools

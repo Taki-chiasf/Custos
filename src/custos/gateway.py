@@ -9,6 +9,7 @@ assistant is only ever invoked when policy says ``ASSIST`` or ``PROMPT``.
 
 from __future__ import annotations
 
+import fnmatch
 import time
 import uuid
 from collections.abc import Mapping, Sequence
@@ -17,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 
 from custos.assistants.base import AssistantRegistry
 from custos.policy import PolicyRuleSpec, Rule
+from custos.policy.engine import _action_to_outcome
 from custos.policy.schema import PolicyValidationError
 from custos.schema import (
     AssistantOutput,
@@ -71,6 +73,7 @@ class Gateway:
         self.default_timeout_ms = default_timeout_ms
         self.local_only = local_only
         self._audit = _resolve_audit_sink(audit_sink)
+        self.last_event: AuditEvent | None = None
 
         registry = AssistantRegistry(local_only=local_only)
         if assistants:
@@ -110,9 +113,8 @@ class Gateway:
         request_id = inv.request_id or uuid.uuid4().hex
 
         # 1. Parse - already structured in ``inv``.
-        # 2. Policy evaluation (deterministic, pure).
-        outcome = self.policy.evaluate(inv)
-        policy_match = _resolve_policy_match(self.policy, inv)
+        # 2. Policy evaluation (deterministic, pure) + resolve match in one scan.
+        outcome, policy_match, matched = _evaluate_with_match(self.policy, inv)
 
         # 3. Floor/ceiling : policy DENY/ALLOW short-circuit before the
         #    try block so their audit events are always emitted directly.
@@ -169,7 +171,6 @@ class Gateway:
 
         try:
             if outcome == PolicyOutcome.ASSIST:
-                matched = self.policy.matched_rule(inv)
                 assistant_name_raw = matched.action if matched else "assist"
                 _, sep, name_suffix = assistant_name_raw.partition(":")
                 resolved = (
@@ -208,14 +209,15 @@ class Gateway:
             # 5. PROMPT: fatigue seam B then responder.
             if decision == Decision.PROMPT:
                 if self.fatigue is not None:
-                    batching_config = _resolve_batching(self.policy, inv)
+                    batching_config = _resolve_batching(self.policy, inv, matched)
                     fd = self.fatigue.before_prompt(inv, decision, batching=batching_config)
                     decision = fd.decision
                     fatigue_cacheable = fd.cacheable
                     if fd.reasoning:
                         reasoning = f"{reasoning} | {fd.reasoning}"
                 if decision == Decision.PROMPT:
-                    quorum_cfg = _resolve_quorum(self.policy, inv)
+                    quorum_cfg = _resolve_quorum(self.policy, inv, matched)
+                    fatigue_cacheable = True
                     response = self._route_prompt(
                         inv, request_id, risk, reasoning, quorum_cfg=quorum_cfg
                     )
@@ -225,7 +227,7 @@ class Gateway:
 
         except Exception as exc:
             decision = Decision.DENY
-            reasoning = f"gateway error: {exc}"
+            reasoning = f"gateway error: {type(exc).__name__}"
             risk = 1.0
             response = None
             fatigue_cacheable = False
@@ -244,7 +246,7 @@ class Gateway:
                 reasoning=reasoning,
                 responder=getattr(self.responder, "name", None) if self.responder else None,
                 approver=response.approver if response else None,
-                quorum_state=_infer_quorum_state(self.policy, inv, decision),
+                quorum_state=_infer_quorum_state(self.policy, inv, decision, matched),
             )
             if self.fatigue is not None:
                 with suppress(Exception):
@@ -356,6 +358,7 @@ class Gateway:
             quorum_state=quorum_state,
         )
         self._audit.emit(event)
+        self.last_event = event
 
     def wrap(self, tools: Sequence[Any]) -> list[Any]:
         """Wrap an agent's tool registry so every call is gated (US-1).
@@ -465,7 +468,11 @@ def _persist_assistant_rule_impl(policy: Policy, persist_rule: Any, inv: Invocat
                 continue
             if later_rule.action.startswith("deny"):
                 later_tool = later_rule.spec.match.get("tool")
-                if later_tool is None or later_tool == "*" or later_tool == tool:
+                if later_tool is None or later_tool == "*":
+                    return
+                if tool is not None and (
+                    fnmatch.fnmatchcase(tool, later_tool) or fnmatch.fnmatchcase(later_tool, tool)
+                ):
                     return
 
     try:
@@ -571,25 +578,60 @@ def _resolve_policy_match_index(policy: Policy, inv: Invocation) -> int | None:
     return None
 
 
-def _resolve_batching(policy: Policy, inv: Invocation) -> Mapping[str, Any] | None:
+def _evaluate_with_match(policy: Policy, inv: Invocation) -> tuple[PolicyOutcome, str, Rule | None]:
+    """Evaluate the policy and return (outcome, policy_match_label, matched_rule)
+    in a single ruleset scan, avoiding redundant iteration."""
+    env = inv.context.extra.get("env") if inv.context.extra else None
+    env_str = env if isinstance(env, str) else None
+    rules = policy.rules
+    for rule in rules:
+        if not rule.applies_to_context(
+            user_id=inv.context.user_id,
+            goal_id=inv.context.goal_id,
+            env=env_str,
+        ):
+            continue
+        if rule.matches(inv):
+            outcome = _action_to_outcome(rule.action)
+            overlay = rule.overlay_id or "inline"
+            label = f"{overlay}:{rule.action}"
+            return outcome, label, rule
+    default_outcome = _action_to_outcome(policy.default)
+    return default_outcome, f"default:{policy.default}", None
+
+
+def _resolve_batching(
+    policy: Policy, inv: Invocation, matched: Rule | None = None
+) -> Mapping[str, Any] | None:
     """Extract the matched rule's ``batching`` config for the fatigue layer .
 
-    Returns the verbatim ``batching`` mapping from the matched rule's spec, or
-    ``None`` when no rule matched or the rule has no batching config.
+    When ``matched`` is provided (pre-resolved, avoiding a second scan), uses it
+    directly. Otherwise falls back to the index-based scan.
     """
+    if matched is not None:
+        return matched.spec.batching
     idx = _resolve_policy_match_index(policy, inv)
     if idx is None:
         return None
     return policy.rules[idx].spec.batching
 
 
-def _resolve_quorum(policy: Policy, inv: Invocation) -> Mapping[str, Any] | None:
+def _resolve_quorum(
+    policy: Policy, inv: Invocation, matched: Rule | None = None
+) -> Mapping[str, Any] | None:
     """Extract the matched rule's quorum config for the responder .
 
-    Returns a mapping ``{"quorum": int, "approver_roles": [...],
-    "approver_allowlist": [...]}`` when the matched rule has a quorum set;
-    otherwise ``None`` (single-approver semantics apply).
+    When ``matched`` is provided (pre-resolved), uses it directly.
     """
+    if matched is not None:
+        spec = matched.spec
+        if spec.quorum is None:
+            return None
+        return {
+            "quorum": spec.quorum,
+            "approver_roles": tuple(spec.approver_roles),
+            "approver_allowlist": tuple(spec.approver_allowlist),
+        }
     idx = _resolve_policy_match_index(policy, inv)
     if idx is None:
         return None
@@ -603,9 +645,14 @@ def _resolve_quorum(policy: Policy, inv: Invocation) -> Mapping[str, Any] | None
     }
 
 
-def _infer_quorum_state(policy: Policy, inv: Invocation, decision: Decision) -> str | None:
+def _infer_quorum_state(
+    policy: Policy, inv: Invocation, decision: Decision, matched: Rule | None = None
+) -> str | None:
     """Derive the ``quorum_state`` audit label from the matched rule + decision
     (Q10). Pure - no responder field required.
+
+    When ``matched`` is provided (pre-resolved), uses it directly to avoid
+    a redundant policy scan.
 
     Returns one of:
       - ``"met"``    — quorum configured AND decision is allow*: distinct-role
@@ -618,14 +665,18 @@ def _infer_quorum_state(policy: Policy, inv: Invocation, decision: Decision) -> 
         prompt-resolved path). Matches the  audit surface for v0.4 single-
         approver prompts, leaving their audit events unchanged.
     """
+    if matched is not None and matched.spec.quorum is not None:
+        return _infer_quorum_state_from_decision(decision)
     if _resolve_quorum(policy, inv) is None:
         return None
+    return _infer_quorum_state_from_decision(decision)
+
+
+def _infer_quorum_state_from_decision(decision: Decision) -> str | None:
     if decision.is_allow:
         return "met"
     if decision == Decision.DEFER:
         return "pending"
     if decision == Decision.DENY:
         return "failed"
-    # decision == PROMPT (the fatigue/batcher short-circuited before
-    # resolving). Treat pending — the responder hasn't decided yet.
     return "pending"
