@@ -9,7 +9,43 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Remaining
 - Full 1440-cell Janus-v1 parity matrix run.
 
-## [1.0.0] — 2026-07-28
+## [1.0.1] — 2026-07-28
+
+Patch release: code hardening from council review, documentation overhaul.
+
+### Fixed
+- Gateway and AsyncGateway decision pipeline: exception safety, audit sink
+  type handling, fatigue cacheable flag thread safety.
+- Audit: `HashChainedAuditSink` hash-chain verification with genesis sentinel,
+  `CapturingAuditSink` thread-local clearing, schema version in audit events.
+- Fatique: dedup and suppression cache invalidation on policy reload.
+- Responders: `MultiApproverResponder` deterministic result ordering, circuit
+  breaker fallback chain.
+- Sidecar: gRPC server auth error handling and replay cache bounds.
+- Integration adapters: standardized error message format across Anthropic,
+  AutoGen, Google ADK, LangChain, LlamaIndex, MCP, and OpenAI Agents adapters.
+- SDK: `set_default_context` thread safety.
+- Policy engine: rule evaluation edge cases with null/missing args.
+- Exceptions: `PermissionDenied` str/repr parity.
+- Risk assessment assistant: missing goal fallback.
+
+### Added
+- Release workflow: automated GitHub Release on tag push with Python wheel/sdist
+  and SBOM artifacts. PyPI publish via OIDC trusted publishing; npm publish
+  (@taqiy/custos-core, @taqiy/custos-grpc) via provenance-signed CI.
+- 79-line hash-chain verification test suite; 202 lines of gateway edge-case
+  regression tests.
+- Added comparison link references to CHANGELOG.
+
+### Changed
+- Rewrote README with problem-first structure: architecture flow diagram,
+  decision pipeline overview, comparison table, assistant LLM-needs table,
+  install decision guide, and documentation link table.
+- Removed stale internal PRD annotation tags from all user-facing docs
+  (quickstart, tutorial, policy, sidecar, eval, index, README).
+- Bumped `@taqiy/custos-grpc` 1.0.0-rc1.0 → 1.0.0 for GA.
+
+## [1.0.0] — 2026-07-22
 
 v1.0 GA. 604 Python tests + 172 TS tests pass. ruff + mypy --strict clean.
 `pip-audit` clean; CycloneDX SBOM shipped.
@@ -44,21 +80,12 @@ v1.0 GA. 604 Python tests + 172 TS tests pass. ruff + mypy --strict clean.
 - Python 3.13 stdin-capture fix; full license audit.
 - Janus-v1 harness hardening (incremental flush+fsync, 5-tuple resume,
   partial-tail repair; qwen2.5:7b-instruct smoke green).
-- Release workflow: automated GitHub Release on tag push, with Python wheel/sdist
-  and SBOM artifacts. PyPI publish via OIDC trusted publishing; npm publish
-  (@taqiy/custos-core, @taqiy/custos-grpc) via provenance-signed CI.
-- Bumped `@taqiy/custos-grpc` 1.0.0-rc1.0 → 1.0.0 for GA.
 
 ### Changed
 - `custos.__version__` 1.0.0rc1 → 1.0.0.
 - `@taqiy/custos-core` version 1.0.0-rc1.0 → 1.0.0.
 - `pyproject.toml` classifier: Beta → Production/Stable.
 - Pinned risk_score canonical float repr; missing-signature = failed-verification.
-- Rewrote README with problem-first structure: architecture flow diagram,
-  decision pipeline overview, comparison table, assistant LLM-needs table,
-  install decision guide, and documentation link table.
-- Polished docs/index.md landing page: removed internal annotation tags,
-  friendlier opening paragraph.
 
 ## [1.0.0rc1] — 2026-07-20
 
@@ -169,7 +196,8 @@ Core middleware. 183 tests pass.
 - Python SDK `Gateway.wrap` with `functools.wraps` signature preservation.
 - LangChain adapter (`custos-middleware[langchain]` extra).
 
-[Unreleased]: https://github.com/Taki-chiasf/Custos/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Taki-chiasf/Custos/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/Taki-chiasf/Custos/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Taki-chiasf/Custos/compare/v1.0.0rc1...v1.0.0
 [1.0.0rc1]: https://github.com/Taki-chiasf/Custos/compare/v0.4.0...v1.0.0rc1
 [0.4.0]: https://github.com/Taki-chiasf/Custos/compare/v0.3.0...v0.4.0
