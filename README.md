@@ -4,7 +4,7 @@ Drop-in permission middleware for AI agents.
 
 [![Python](https://img.shields.io/badge/python-%3E%3D3.10-blue.svg)](https://pypi.org/project/custos-middleware/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://pypi.org/project/custos-middleware/)
+[![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)](https://pypi.org/project/custos-middleware/)
 
 ---
 
