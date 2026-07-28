@@ -74,7 +74,7 @@ jobs:
       - name: Install + build @taqiy/custos-grpc
         run: |
           cd packages/custos-grpc
-          npm install ../custos-ts/taqiy-custos-core-1.0.0.tgz
+          npm install ../custos-ts/taqiy-custos-core-*.tgz
           npm run build
       - uses: actions/upload-artifact@v4
         with:

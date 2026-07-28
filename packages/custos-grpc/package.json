@@ -1,6 +1,6 @@
 {
   "name": "@taqiy/custos-grpc",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "gRPC transport for the Custos sidecar - the SidecarTransport implementation consumed by @taqiy/custos-core's sidecarAssistant(transport) factory.",
   "license": "Apache-2.0",
   "author": "Custos contributors",
@@ -39,7 +39,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@taqiy/custos-core": "^1.0.0"
+    "@taqiy/custos-core": "^1.0.1"
   },
   "peerDependencies": {
     "@grpc/grpc-js": "^1.10",
