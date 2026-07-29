@@ -10,13 +10,28 @@ from __future__ import annotations
 import functools
 import inspect
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from custos.exceptions import PermissionDenied
 from custos.gateway import Gateway
-from custos.schema import Decision, Invocation, SubjectContext, ToolDescriptor
+from custos.schema import (
+    ContextSnapshot,
+    Decision,
+    InputSource,
+    Invocation,
+    SubjectContext,
+    ToolDescriptor,
+    WipeStrategy,
+)
 
-__all__ = ["wrap_callables", "set_default_context", "get_default_context"]
+__all__ = [
+    "wrap_callables",
+    "set_default_context",
+    "get_default_context",
+    "MemoryWipe",
+    "ContextProvider",
+    "MemoryWipeResult",
+]
 
 
 # Module-level default subject context (used when a wrapped tool is called
@@ -35,11 +50,63 @@ def get_default_context() -> SubjectContext:
     return _default_context
 
 
+@runtime_checkable
+class MemoryWipe(Protocol):
+    """Protocol for SDK-level context sanitisation after IPI detection (A12).
+
+    Each framework adapter implements this to clear/sanitise agent context
+    when the gateway returns :attr:`Decision.QUARANTINE`.
+    """
+
+    def sanitize(
+        self,
+        context: Any,
+        sources: tuple[InputSource, ...],
+        strategy: WipeStrategy,
+    ) -> Any:
+        """Return sanitised context after removing injection sources."""
+        ...
+
+
+@runtime_checkable
+class ContextProvider(Protocol):
+    """Protocol for providing a :class:`ContextSnapshot` to the gateway (A12).
+
+    Framework adapters implement this to snapshot the agent's full conversation
+    context (messages, input sources, system prompt) before each tool call.
+    """
+
+    def get_snapshot(self) -> ContextSnapshot:
+        """Return the current agent context snapshot."""
+        ...
+
+
+class MemoryWipeResult:
+    """Result of a memory-wipe operation (A12).
+
+    Attributes:
+        sanitized_context: the sanitised context (framework-specific).
+        sources_removed: count of injection sources removed.
+        strategy: the strategy that was applied.
+    """
+
+    __slots__ = ("sanitized_context", "sources_removed", "strategy")
+
+    def __init__(
+        self, sanitized_context: Any, sources_removed: int, strategy: WipeStrategy
+    ) -> None:
+        self.sanitized_context = sanitized_context
+        self.sources_removed = sources_removed
+        self.strategy = strategy
+
+
 def wrap_callables(
     gateway: Gateway,
     tools: list[Callable[..., Any]] | tuple[Callable[..., Any], ...],
     *,
     descriptors: dict[str, ToolDescriptor] | None = None,
+    context_provider: ContextProvider | None = None,
+    memory_wipe: MemoryWipe | None = None,
 ) -> list[Callable[..., Any]]:
     """Wrap a list of plain callables so every call is gated by the gateway (US-1).
 
@@ -48,11 +115,14 @@ def wrap_callables(
 
       1. Builds an :class:`Invocation` from the tool's name + bound args +
          a :class:`SubjectContext`.
-      2. Calls ``gateway.decide(inv)``.
+      2. Calls ``gateway.decide(inv, snapshot=...)`` when ``context_provider``
+         is set.
       3. On ``deny``/``defer`` raises :class:`PermissionDenied` and never
          invokes the tool.
       4. On ``allow`` / ``allow_once`` / ``allow_and_persist`` forwards to the
          underlying callable and returns its result.
+      5. On ``quarantine`` calls ``memory_wipe.sanitize(...)`` when
+         ``memory_wipe`` is set.
 
     The tool name used in the :class:`Invocation` is the descriptor's ``name``
     when ``descriptors`` maps the callable's ``__name__`` to a descriptor
@@ -68,10 +138,14 @@ def wrap_callables(
     for tool in tools:
         py_name = getattr(tool, "__name__", None) or repr(tool)
         descriptor = descriptors.get(py_name) or _minimal_descriptor(py_name)
-        # Use the descriptor's name (policy-space) when provided; else the
-        # callable's __name__.
         tool_name = descriptor.name or py_name
-        wrapped.append(_wrap_one(gateway, tool, tool_name, descriptor))
+        wrapped.append(
+            _wrap_one(
+                gateway, tool, tool_name, descriptor,
+                context_provider=context_provider,
+                memory_wipe=memory_wipe,
+            )
+        )
     return wrapped
 
 
@@ -106,6 +180,9 @@ def _wrap_one(
     tool: Callable[..., Any],
     name: str,
     descriptor: ToolDescriptor,
+    *,
+    context_provider: ContextProvider | None = None,
+    memory_wipe: MemoryWipe | None = None,
 ) -> Callable[..., Any]:
     @functools.wraps(tool)
     def proxy(*args: Any, **kwargs: Any) -> Any:
@@ -124,7 +201,25 @@ def _wrap_one(
             context=ctx,
             descriptor=descriptor,
         )
-        decision = gateway.decide(inv)
+        snapshot = context_provider.get_snapshot() if context_provider else None
+        decision = gateway.decide(inv, snapshot=snapshot)
+        if decision == Decision.QUARANTINE and memory_wipe is not None:
+            if context_provider is not None:
+                current_ctx = context_provider.get_snapshot()
+                memory_wipe.sanitize(
+                    current_ctx,
+                    (),
+                    WipeStrategy.FULL,
+                )
+            last = gateway.last_event
+            raise PermissionDenied(
+                name,
+                decision.value,
+                reasoning=last.reasoning if last else "",
+                risk=last.risk_score if last else 0.0,
+                policy_match=last.policy_match if last else None,
+                assistant=last.assistant if last else None,
+            )
         if decision in (Decision.DENY, Decision.DEFER):
             last = gateway.last_event
             raise PermissionDenied(

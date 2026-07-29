@@ -48,8 +48,8 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from custos.exceptions import PermissionDenied
-from custos.schema import Decision, Invocation, SideEffect, ToolDescriptor
-from custos.sdk import get_default_context
+from custos.schema import Decision, Invocation, SideEffect, ToolDescriptor, WipeStrategy
+from custos.sdk import ContextProvider, MemoryWipe, get_default_context
 
 if TYPE_CHECKING:
     from custos.async_gateway import AsyncGateway
@@ -72,6 +72,8 @@ def gated_anthropic_tool(
     side_effects: frozenset[SideEffect] = frozenset(),
     schema: dict[str, Any] | None = None,
     reversible: bool = False,
+    context_provider: ContextProvider | None = None,
+    memory_wipe: MemoryWipe | None = None,
 ) -> tuple[dict[str, Any], Callable[..., Any]]:
     """Build a Custos-gated Anthropic tool + handler pair .
 
@@ -111,7 +113,11 @@ def gated_anthropic_tool(
         reversible=reversible,
     )
     definition = make_tool_definition(name, description, input_schema)
-    gated_handler = _make_gated_anthropic_handler(name, descriptor, gateway, handler)
+    gated_handler = _make_gated_anthropic_handler(
+        name, descriptor, gateway, handler,
+        context_provider=context_provider,
+        memory_wipe=memory_wipe,
+    )
     return definition, gated_handler
 
 
@@ -120,6 +126,8 @@ def wrap_anthropic_tool_handlers(
     handlers: dict[str, Callable[..., Any]],
     *,
     descriptors: dict[str, ToolDescriptor] | None = None,
+    context_provider: ContextProvider | None = None,
+    memory_wipe: MemoryWipe | None = None,
 ) -> dict[str, Callable[..., Any]]:
     """Re-wrap an existing Anthropic ``name -> handler`` dispatch map.
 
@@ -139,7 +147,11 @@ def wrap_anthropic_tool_handlers(
     out: dict[str, Callable[..., Any]] = {}
     for name, handler in handlers.items():
         descriptor = descriptors.get(name) or ToolDescriptor(name=name, risk_tier=3)
-        out[name] = _make_gated_anthropic_handler(name, descriptor, gateway, handler)
+        out[name] = _make_gated_anthropic_handler(
+            name, descriptor, gateway, handler,
+            context_provider=context_provider,
+            memory_wipe=memory_wipe,
+        )
     return out
 
 
@@ -205,6 +217,9 @@ def _make_gated_anthropic_handler(
     descriptor: ToolDescriptor,
     gateway: AsyncGateway,
     handler: Callable[..., Any],
+    *,
+    context_provider: ContextProvider | None = None,
+    memory_wipe: MemoryWipe | None = None,
 ) -> Callable[..., Any]:
     """Build an async gated handler for an Anthropic ``tool_use`` block.
 
@@ -230,7 +245,12 @@ def _make_gated_anthropic_handler(
             context=ctx,
             descriptor=descriptor,
         )
-        decision = await gateway.decide(inv)
+        snapshot = context_provider.get_snapshot() if context_provider else None
+        decision = await gateway.decide(inv, snapshot=snapshot)
+        if decision == Decision.QUARANTINE and memory_wipe is not None and context_provider is not None:
+            current_ctx = context_provider.get_snapshot()
+            memory_wipe.sanitize(current_ctx, (), WipeStrategy.FULL)
+            raise PermissionDenied(name, decision.value)
         if decision in (Decision.DENY, Decision.DEFER):
             raise PermissionDenied(name, decision.value)
         # The underlying handler may accept either (input_dict) or (**kwargs).

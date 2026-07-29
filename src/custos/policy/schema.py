@@ -23,9 +23,10 @@ __all__ = [
 
 # Recognized policy actions . ``assist:<name>`` is matched by head.
 _ALLOWED_ACTIONS: frozenset[str] = frozenset(
-    {"allow", "deny", "prompt", "allow_and_audit", "deny_and_alert"}
+    {"allow", "deny", "prompt", "allow_and_audit", "deny_and_alert", "inspect"}
 )
 _ASSIST_PREFIX = "assist:"
+_INSPECT_PREFIX = "inspect:"
 
 
 class PolicyValidationError(ValueError):
@@ -128,10 +129,16 @@ def validate_rule(rule: PolicyRuleSpec) -> None:
         name = action[len(_ASSIST_PREFIX) :]
         if not name:
             raise PolicyValidationError(f"assist action requires a name, got {action!r}")
+    elif action == "inspect:":
+        pass
+    elif action.startswith(_INSPECT_PREFIX):
+        name = action[len(_INSPECT_PREFIX) :]
+        if not name:
+            raise PolicyValidationError(f"inspect action requires a name, got {action!r}")
     else:
         raise PolicyValidationError(
             f"unknown policy action {action!r}; allowed: "
-            f"{sorted(_ALLOWED_ACTIONS)} or 'assist:<name>'"
+            f"{sorted(_ALLOWED_ACTIONS)} or 'assist:<name>' or 'inspect:<name>'"
         )
 
     match = rule.match

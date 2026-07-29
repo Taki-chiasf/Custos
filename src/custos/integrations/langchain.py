@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING, Any
 
 from custos.exceptions import PermissionDenied
 from custos.gateway import Gateway
-from custos.schema import Decision, Invocation, ToolDescriptor
-from custos.sdk import get_default_context
+from custos.schema import Decision, Invocation, ToolDescriptor, WipeStrategy
+from custos.sdk import ContextProvider, MemoryWipe, get_default_context
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -26,6 +26,8 @@ def wrap_langchain_tools(
     tools: Sequence[Any],
     *,
     descriptors: dict[str, ToolDescriptor] | None = None,
+    context_provider: ContextProvider | None = None,
+    memory_wipe: MemoryWipe | None = None,
 ) -> list[Any]:
     """Wrap LangChain ``BaseTool`` objects with Custos gating (US-1).
 
@@ -48,7 +50,11 @@ def wrap_langchain_tools(
         descriptor = descriptors.get(name) or _minimal_descriptor(name)
         description = getattr(tool, "description", "") or f"Wrapped by Custos: {name}"
         args_schema = getattr(tool, "args_schema", None)
-        _gated = _make_gated_fn(gateway, tool, name, descriptor)
+        _gated = _make_gated_fn(
+            gateway, tool, name, descriptor,
+            context_provider=context_provider,
+            memory_wipe=memory_wipe,
+        )
         wrapped.append(
             StructuredTool.from_function(
                 _gated,
@@ -65,6 +71,9 @@ def _make_gated_fn(
     original: Any,
     name: str,
     descriptor: ToolDescriptor,
+    *,
+    context_provider: ContextProvider | None = None,
+    memory_wipe: MemoryWipe | None = None,
 ) -> Any:
     """Build a gated callable that closes over its arguments (avoids loop binding)."""
 
@@ -76,7 +85,12 @@ def _make_gated_fn(
             context=ctx,
             descriptor=descriptor,
         )
-        decision = gateway.decide(inv)
+        snapshot = context_provider.get_snapshot() if context_provider else None
+        decision = gateway.decide(inv, snapshot=snapshot)
+        if decision == Decision.QUARANTINE and memory_wipe is not None and context_provider is not None:
+            current_ctx = context_provider.get_snapshot()
+            memory_wipe.sanitize(current_ctx, (), WipeStrategy.FULL)
+            raise PermissionDenied(name, decision.value)
         if decision in (Decision.DENY, Decision.DEFER):
             raise PermissionDenied(name, decision.value)
         return original.invoke(kwargs)

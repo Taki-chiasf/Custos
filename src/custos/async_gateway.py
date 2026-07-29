@@ -49,11 +49,15 @@ from custos.gateway import (
     _resolve_batching,
     _resolve_quorum,
 )
+from custos.inspectors.base import InspectorRegistry
 from custos.policy import Policy
 from custos.schema import (
     AssistantOutput,
     AuditEvent,
+    ContextSnapshot,
     Decision,
+    InspectionResult,
+    InspectionVerdict,
     Invocation,
     PolicyOutcome,
     PromptRequest,
@@ -64,6 +68,7 @@ if TYPE_CHECKING:
     from custos.assistants.base import Assistant, AssistantAsync
     from custos.audit import AuditSink
     from custos.fatigue.base import FatigueLayer, FatigueLayerAsync
+    from custos.inspectors.base import ContextInspector, ContextInspectorAsync
     from custos.responders.base import Responder, ResponderAsync
 
 __all__ = ["AsyncGateway"]
@@ -113,6 +118,8 @@ class AsyncGateway:
         *,
         default_timeout_ms: int = 30_000,
         assistants: list[Assistant | AssistantAsync] | None = None,
+        inspector: ContextInspector | ContextInspectorAsync | None = None,
+        inspectors: list[ContextInspector | ContextInspectorAsync] | None = None,
         local_only: bool = False,
     ) -> None:
         """``local_only`` enables the air-gapped profile (H4). See
@@ -136,7 +143,15 @@ class AsyncGateway:
             registry.register(cast("Assistant", assistant))
         self._assistant_registry = registry
 
-    async def decide(self, inv: Invocation) -> Decision:
+        insp_registry = InspectorRegistry(local_only=local_only)
+        if inspectors:
+            for i in cast("list[ContextInspector]", inspectors):
+                insp_registry.register(i)
+        if inspector is not None:
+            insp_registry.register(cast("ContextInspector", inspector))
+        self._inspector_registry = insp_registry
+
+    async def decide(self, inv: Invocation, *, snapshot: ContextSnapshot | None = None) -> Decision:
         """Run the full async pipeline for one invocation (steps 1-8).
 
         Returns the final :class:`Decision`. Emits exactly one
@@ -144,6 +159,10 @@ class AsyncGateway:
         exception-safe (H8): assistant/responder/fatigue errors are
         caught and converted to a safe ``DENY`` with error reasoning; the
         audit event and fatigue seam C ALWAYS run (finally).
+
+        ``snapshot``  is the agent's full conversation context,
+        required by context inspectors (A12). When absent, the INSPECT
+        step is skipped and a ``DENY`` is returned for inspect-policy actions.
         """
         start = time.monotonic()
         request_id = inv.request_id or uuid.uuid4().hex
@@ -200,14 +219,73 @@ class AsyncGateway:
         # Steps 4–6 — the ASSIST/PROMPT/fatigue/responder branch. Wrapped in
         # try/finally so the audit event and seam C ALWAYS execute (H8).
         assistant_name: str | None = None
+        inspector_name: str | None = None
         risk = 0.0
         reasoning = f"policy: {outcome.value}"
         response: PromptResponse | None = None
         decision: Decision = Decision.DENY
         fatigue_cacheable: bool = True
+        skip_prompt: bool = False
 
         try:
-            if outcome == PolicyOutcome.ASSIST:
+            # 3a. Context inspector (A12) — runs before the assistant when
+            #     policy says ``inspect:<name>``.
+            if outcome == PolicyOutcome.INSPECT:
+                inspector_name_raw = matched.action if matched else "inspect"
+                _, sep, name_suffix = inspector_name_raw.partition(":")
+                resolved_insp = (
+                    self._inspector_registry.get(name_suffix)
+                    if sep
+                    else self._inspector_registry.default
+                )
+                if resolved_insp is None and sep:
+                    resolved_insp = self._inspector_registry.default
+
+                if resolved_insp is None:
+                    decision = Decision.DENY
+                    reasoning = (
+                        f"inspect requested but no inspector registered "
+                        f"(action: {inspector_name_raw})"
+                    )
+                    skip_prompt = True
+                elif snapshot is None:
+                    decision = Decision.DENY
+                    reasoning = (
+                        "inspect requested but no ContextSnapshot provided; "
+                        "inspectors require full agent context"
+                    )
+                    skip_prompt = True
+                elif _exfiltrates_restricted(resolved_insp, inv, matched_rule=matched):
+                    if self.responder is not None:
+                        decision = Decision.PROMPT
+                        reasoning = (
+                            "inspector is exfiltrating (sends args to remote LLM) "
+                            "and args contain restricted data; routing to prompt"
+                        )
+                    else:
+                        decision = Decision.DENY
+                        reasoning = (
+                            "inspector is exfiltrating (sends args to remote LLM) "
+                            "and args contain restricted data; no responder configured"
+                        )
+                        skip_prompt = True
+                else:
+                    inspector_name = getattr(resolved_insp, "name", None)
+                    result: InspectionResult = await _call_method(
+                        resolved_insp, "inspect", inv, inv.context, snapshot
+                    )
+                    risk = result.confidence
+                    reasoning = result.reasoning or f"inspector: {result.verdict.value}"
+                    if result.verdict == InspectionVerdict.SAFE:
+                        outcome = PolicyOutcome.ASSIST
+                    elif result.verdict == InspectionVerdict.SUSPICIOUS:
+                        decision = Decision.PROMPT
+                    elif result.verdict == InspectionVerdict.INJECTION:
+                        decision = Decision.QUARANTINE
+                        skip_prompt = True
+
+            # 4. ASSIST: route to a permission assistant.
+            if not skip_prompt and outcome == PolicyOutcome.ASSIST:
                 assistant_name_raw = matched.action if matched else "assist"
                 _, sep, name_suffix = assistant_name_raw.partition(":")
                 resolved = (
@@ -243,11 +321,11 @@ class AsyncGateway:
                     risk = out.risk
                     reasoning = out.reasoning or f"assistant: {out.decision.value}"
                     decision = _apply_assistant_output_impl(self.policy, out, inv, policy_match)
-            else:
+            elif not skip_prompt and decision != Decision.QUARANTINE:
                 decision = Decision.PROMPT
 
             # 5. PROMPT: fatigue seam B then responder.
-            if decision == Decision.PROMPT:
+            if not skip_prompt and decision == Decision.PROMPT:
                 if self.fatigue is not None:
                     batching_config = _resolve_batching(self.policy, inv, matched)
                     fd = await _call_method(
@@ -295,6 +373,7 @@ class AsyncGateway:
                 reasoning=reasoning,
                 responder=getattr(self.responder, "name", None) if self.responder else None,
                 approver=response.approver if response else None,
+                inspector=inspector_name,
                 quorum_state=_infer_quorum_state(self.policy, inv, decision, matched),
             )
             if self.fatigue is not None:
@@ -370,6 +449,7 @@ class AsyncGateway:
         reasoning: str,
         responder: str | None,
         approver: str | None = None,
+        inspector: str | None = None,
         quorum_state: str | None = None,
     ) -> None:
         """Emit the structured audit event . Redacts args first .
@@ -391,6 +471,7 @@ class AsyncGateway:
             latency_ms=latency_ms,
             subject=inv.context,
             approver=approver,
+            inspector=inspector,
             quorum_state=quorum_state,
         )
         self._audit.emit(event)

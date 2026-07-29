@@ -52,8 +52,8 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from custos.exceptions import PermissionDenied
-from custos.schema import Decision, Invocation, SideEffect, ToolDescriptor
-from custos.sdk import get_default_context
+from custos.schema import Decision, Invocation, SideEffect, ToolDescriptor, WipeStrategy
+from custos.sdk import ContextProvider, MemoryWipe, get_default_context
 
 if TYPE_CHECKING:
     from custos.async_gateway import AsyncGateway
@@ -70,6 +70,8 @@ def gated_function_tool(
     reversible: bool = False,
     tool_name: str | None = None,
     description: str | None = None,
+    context_provider: ContextProvider | None = None,
+    memory_wipe: MemoryWipe | None = None,
     **function_tool_kwargs: Any,
 ) -> Callable[[Callable[..., Any]], Any]:
     """Decorator factory: build a Custos-gated OpenAI Agents ``FunctionTool``.
@@ -115,7 +117,11 @@ def gated_function_tool(
             schema=schema or {},
             reversible=reversible,
         )
-        gated = _make_gated_async_fn(fn, policy_tool_name, descriptor, gateway)
+        gated = _make_gated_async_fn(
+            fn, policy_tool_name, descriptor, gateway,
+            context_provider=context_provider,
+            memory_wipe=memory_wipe,
+        )
 
         # Late import — keeps the module importable without the SDK installed.
         from agents import function_tool as _function_tool
@@ -135,6 +141,8 @@ def wrap_openai_agent_tools(
     tools: list[Any],
     *,
     descriptors: dict[str, ToolDescriptor] | None = None,
+    context_provider: ContextProvider | None = None,
+    memory_wipe: MemoryWipe | None = None,
 ) -> list[Any]:
     """Re-wrap an existing list of OpenAI Agents ``FunctionTool`` objects with
     Custos gating.
@@ -204,6 +212,8 @@ def wrap_openai_agent_tools(
             tool.name,
             descriptor,
             gateway,
+            context_provider=context_provider,
+            memory_wipe=memory_wipe,
         )
         new_tool = _copy.copy(tool)
         # The on_invoke_tool wrapper is reused (shallow-shared via the copy's
@@ -224,6 +234,9 @@ def _make_gated_async_fn(
     name: str,
     descriptor: ToolDescriptor,
     gateway: AsyncGateway,
+    *,
+    context_provider: ContextProvider | None = None,
+    memory_wipe: MemoryWipe | None = None,
 ) -> Callable[..., Any]:
     """Build an async gated wrapper around a raw Python function for
     :func:`gated_function_tool`. Awaits the result if it's awaitable."""
@@ -238,7 +251,12 @@ def _make_gated_async_fn(
             context=ctx,
             descriptor=descriptor,
         )
-        decision = await gateway.decide(inv)
+        snapshot = context_provider.get_snapshot() if context_provider else None
+        decision = await gateway.decide(inv, snapshot=snapshot)
+        if decision == Decision.QUARANTINE and memory_wipe is not None and context_provider is not None:
+            current_ctx = context_provider.get_snapshot()
+            memory_wipe.sanitize(current_ctx, (), WipeStrategy.FULL)
+            raise PermissionDenied(name, decision.value)
         if decision in (Decision.DENY, Decision.DEFER):
             raise PermissionDenied(name, decision.value)
         res = original_fn(*args, **kwargs)
@@ -255,6 +273,9 @@ def _make_gated_invoker(
     name: str,
     descriptor: ToolDescriptor,
     gateway: AsyncGateway,
+    *,
+    context_provider: ContextProvider | None = None,
+    memory_wipe: MemoryWipe | None = None,
 ) -> Callable[[Any, str], Any]:
     """Build an async gated ``on_invoke_tool(ctx, json_str)`` wrapper around
     an existing SDK :class:`FunctionTool.on_invoke_tool`.
@@ -277,7 +298,6 @@ def _make_gated_invoker(
         ctx = parsed.pop("custos_context", None)
         if ctx is None:
             ctx = get_default_context()
-        # Re-serialize the (possibly ctx-stripped) args for the underlying invoker.
         forwarded_json = json.dumps(parsed) if parsed else args_json
         inv = Invocation(
             tool=name,
@@ -285,7 +305,12 @@ def _make_gated_invoker(
             context=ctx,
             descriptor=descriptor,
         )
-        decision = await gateway.decide(inv)
+        snapshot = context_provider.get_snapshot() if context_provider else None
+        decision = await gateway.decide(inv, snapshot=snapshot)
+        if decision == Decision.QUARANTINE and memory_wipe is not None and context_provider is not None:
+            current_ctx = context_provider.get_snapshot()
+            memory_wipe.sanitize(current_ctx, (), WipeStrategy.FULL)
+            raise PermissionDenied(name, decision.value)
         if decision in (Decision.DENY, Decision.DEFER):
             raise PermissionDenied(name, decision.value)
         return await original_invoker(ctx_obj, forwarded_json)

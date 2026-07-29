@@ -6,6 +6,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added (v1.1.0a1)
+- **A12 `ipi-defender`** — context inspector for selective IPI defence.
+  Fast-path pattern matching + n-gram similarity against known injection
+  markers; optional deep-path leave-one-out causal attribution via LLM.
+  `Decision.QUARANTINE` blocks calls + triggers SDK memory wipe.
+- `ContextInspector` protocol + `InspectorRegistry` — pluggable pre-assistant
+  inspection of full agent conversation context.
+- `InspectionVerdict` enum (SAFE / SUSPICIOUS / INJECTION), `InputSource`,
+  `ContextSnapshot`, `InjectionFinding`, `InspectionResult` data types.
+- `MemoryWipe` + `ContextProvider` protocols in SDK for post-QUARANTINE
+  context sanitisation.
+- `inspector=` parameter on `Gateway` and `AsyncGateway` for global coverage;
+  policy `inspect:<name>` action for per-tool routing.
+- `PolicyOutcome.INSPECT` — new policy evaluation outcome.
+- `AuditEvent.inspector` — inspector name in audit trail.
+- Adapter support for context provider + memory wipe in LangChain, OpenAI
+  Agents, and Anthropic adapters.
+
 ### Remaining
 - Full 1440-cell Janus-v1 parity matrix run.
 

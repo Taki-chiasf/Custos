@@ -9,8 +9,9 @@ not regress.
 
 | Version | Supported | Notes |
 |---|---|---|
+| `1.1.x` | Yes | v1.1 (A12 IPI defence + context inspectors). |
 | `1.0.x` | Yes | v1.0 GA . |
-| `1.0.0rc1` | Yes (release candidate) | Current pre-release. |
+| `1.0.0rc1` | Security fixes only | Pre-release. |
 | `0.4.x` | Best-effort | Hardening cut; LTS not promised. |
 | `0.3.x` / `0.2.x` / `0.1.x` | No | Pre-hardening; upgrade. |
 

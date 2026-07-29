@@ -46,11 +46,15 @@ policy_version) — .
 
 ## Actions
 
-`allow`, `deny`, `prompt`, `assist:<name>`, `allow_and_audit`, `deny_and_alert`.
+`allow`, `deny`, `prompt`, `assist:<name>`, `inspect:<name>`, `allow_and_audit`, `deny_and_alert`.
 
 - `deny` short-circuits the pipeline (the floor invariant); an assistant is NEVER
   invoked on a policy `deny`.
-- `assist:<name>` routes to a registered assistant by name .
+- `assist:<name>` routes to a registered permission assistant by name .
+  An unresolved name fail-closes to a safe `deny` + audit.
+- `inspect:<name>` routes to a registered context inspector by name (A12).
+  Requires a `ContextSnapshot` from the agent framework adapter. SAFE ->
+  proceed to assistant; SUSPICIOUS -> prompt; INJECTION -> quarantine.
   An unresolved name fail-closes to a safe `deny` + audit.
 - `allow_and_audit` short-circuits with an audit emit; no responder and no
   assistant consulted.

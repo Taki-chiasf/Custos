@@ -24,10 +24,16 @@ __all__ = [
     "SideEffect",
     "Decision",
     "PolicyOutcome",
+    "InspectionVerdict",
+    "WipeStrategy",
     "ToolDescriptor",
     "SubjectContext",
     "Invocation",
     "AssistantOutput",
+    "InputSource",
+    "ContextSnapshot",
+    "InjectionFinding",
+    "InspectionResult",
     "PromptRequest",
     "PromptResponse",
     "AuditEvent",
@@ -55,6 +61,7 @@ class Decision(str, Enum):
     ``deny``             - final deny; an assistant can never relax this .
     ``prompt``           - hand to the responder for user input.
     ``defer``             - defer the call (fatigue / ask-me-later).
+    ``quarantine``       - block call + trigger SDK context sanitization (A12).
     """
 
     ALLOW = "allow"
@@ -63,6 +70,7 @@ class Decision(str, Enum):
     DENY = "deny"
     PROMPT = "prompt"
     DEFER = "defer"
+    QUARANTINE = "quarantine"
 
     @property
     def is_allow(self) -> bool:
@@ -80,6 +88,23 @@ class PolicyOutcome(str, Enum):
     DENY = "deny"
     PROMPT = "prompt"
     ASSIST = "assist"
+    INSPECT = "inspect"
+
+
+class InspectionVerdict(str, Enum):
+    """Verdict from a context inspector (A12)."""
+
+    SAFE = "safe"
+    SUSPICIOUS = "suspicious"
+    INJECTION = "injection"
+
+
+class WipeStrategy(str, Enum):
+    """Memory-wipe strategy for SDK context sanitization."""
+
+    FULL = "full"
+    SELECTIVE = "selective"
+    ROLLBACK = "rollback"
 
 
 @dataclass(frozen=True)
@@ -364,6 +389,83 @@ class AssistantOutput:
 
 
 @dataclass(frozen=True)
+class InputSource:
+    """A discrete piece of untrusted input within an agent's context (A12).
+
+    Each input source represents one segment of external data (email body,
+    document content, web search result, tool output) that could contain
+    an indirect prompt injection.
+    """
+
+    source_id: str
+    source_type: str
+    content: str
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    @property
+    def content_hash(self) -> str:
+        import hashlib
+
+        return hashlib.sha256(self.content.encode("utf-8")).hexdigest()[:16]
+
+
+@dataclass(frozen=True)
+class ContextSnapshot:
+    """Full agent context at a point in time (A12).
+
+    Captures the complete conversation state — messages, tool outputs,
+    segmentable untrusted inputs — that a context inspector analyses.
+    """
+
+    ts_unix_ms: int
+    messages: tuple[dict[str, Any], ...] = ()
+    sources: tuple[InputSource, ...] = ()
+    system_prompt: str | None = None
+
+    @property
+    def active_sources(self) -> tuple[InputSource, ...]:
+        return self.sources
+
+
+@dataclass(frozen=True)
+class InjectionFinding:
+    """One attributed injection source with confidence + affected indices (A12)."""
+
+    source: InputSource
+    confidence: float
+    affected_indices: tuple[int, ...] = ()
+    method: str = "pattern_match"
+
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.confidence <= 1.0:
+            raise ValueError(f"confidence must be in 0.0..1.0, got {self.confidence}")
+
+
+@dataclass(frozen=True)
+class InspectionResult:
+    """Result from a :class:`~custos.inspectors.base.ContextInspector` (A12).
+
+    Attributes:
+        verdict: SAFE, SUSPICIOUS, or INJECTION.
+        findings: the attributed injection sources (empty when SAFE).
+        confidence: 0.0..1.0 overall confidence in the verdict.
+        masked_snapshot: when not None, a sanitised context with CoT steps
+            influenced by the injection source masked/redacted.
+        reasoning: human-readable trace for audit/eval.
+    """
+
+    verdict: InspectionVerdict
+    findings: tuple[InjectionFinding, ...] = ()
+    confidence: float = 0.0
+    masked_snapshot: ContextSnapshot | None = None
+    reasoning: str = ""
+
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.confidence <= 1.0:
+            raise ValueError(f"confidence must be in 0.0..1.0, got {self.confidence}")
+
+
+@dataclass(frozen=True)
 class PromptRequest:
     """Payload handed to a responder .
 
@@ -433,6 +535,8 @@ class AuditEvent:
     latency_ms: int
     subject: SubjectContext
     approver: str | None = None
+    inspector: str | None = None
+    """Name of the context inspector (A12) that ran on this invocation, if any."""
     quorum_state: str | None = None
     """Quorum state observability (quorum, Q10). One of ``"met"``,
     ``"failed"``, or ``None`` (no quorum configured or not a prompt-resolved
@@ -462,6 +566,7 @@ class AuditEvent:
             "latency_ms": self.latency_ms,
             "subject": self.subject.to_dict(),
             "approver": self.approver,
+            "inspector": self.inspector,
             "quorum_state": self.quorum_state,
             "schema_version": self.schema_version,
         }

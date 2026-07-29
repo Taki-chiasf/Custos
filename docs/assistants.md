@@ -17,9 +17,11 @@ registered with the gateway by name (named-assistant routing).
 | A9 | `context-adaptive` | Chooses prompt granularity by task sensitivity. | True | `allow` / `prompt` |
 | A10 | `learned-policy` | Learns from past user decisions to auto-resolve low-disagreement calls. Cold-starts to A7. | False | `allow_once` / `deny` |
 | A11 | `delegation-aware` | Gradient by delegation depth; deeper -> stricter. | False | `allow` / `prompt` / `deny` |
+| A12 | `ipi-defender` | Context inspector for selective IPI defence. Fast-path pattern matching + leave-one-out causal attribution + CoT masking. | configurable | SAFE / SUSPICIOUS / INJECTION |
 
 A1–A6 reproduce the Janus reference assistants. A7–A11 are Custos extensions.
-All share the same interface.
+A12 is a context inspector — it operates on full agent context, not on
+individual tool invocations. See [Context Inspectors](inspectors.md).
 
 ## Installing the LLM-backed ones
 

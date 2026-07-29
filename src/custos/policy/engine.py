@@ -301,6 +301,7 @@ def _action_to_outcome(action: str) -> PolicyOutcome:
         "deny_and_alert": PolicyOutcome.DENY,
         "prompt": PolicyOutcome.PROMPT,
         "assist": PolicyOutcome.ASSIST,
+        "inspect": PolicyOutcome.INSPECT,
     }
     if head not in mapping:
         raise PolicyValidationError(f"unknown policy action: {action!r}")

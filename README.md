@@ -4,7 +4,7 @@ Drop-in permission middleware for AI agents.
 
 [![Python](https://img.shields.io/badge/python-%3E%3D3.10-blue.svg)](https://pypi.org/project/custos-middleware/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)](https://pypi.org/project/custos-middleware/)
+[![Version](https://img.shields.io/badge/version-1.1.0a1-blue.svg)](https://pypi.org/project/custos-middleware/)
 
 ---
 
@@ -15,8 +15,8 @@ databases, run shell commands, and call APIs. A single misdirected prompt can
 cause real damage: data exfiltration, unintended writes, or privilege escalation.
 
 **Custos sits between your agent and the tools it calls**, intercepting every
-invocation and deciding whether to allow, deny, or ask you — based on a
-declarative policy you control.
+invocation and deciding whether to allow, deny, ask you, or quarantine the call
+when indirect prompt injection is detected — based on a declarative policy you control.
 
 Think of it as OAuth-style consent, but for autonomous LLM agents.
 
@@ -25,6 +25,7 @@ Think of it as OAuth-style consent, but for autonomous LLM agents.
   │ Agent │─────>│      Custos        │─────>│  Tools   │
   └───────┘      │                    │      └──────────┘
                  │  policy evaluator  │
+                 │  + IPI defence     │
                  │  + AI assistant    │
                  │  + your approval   │
                  │  + audit trail     │
@@ -34,8 +35,8 @@ Think of it as OAuth-style consent, but for autonomous LLM agents.
 **Key principles:**
 
 - **Default-deny.** Anything not explicitly allowed in policy is blocked.
-- **Policy is the floor.** An AI assistant can escalate strictness, but can
-  never override a `deny`.
+- **Policy is the floor.** An AI assistant or context inspector can escalate
+  strictness, but can never override a `deny`.
 - **Transparent wrapping.** The agent sees the same tool signatures it always
   did. Gating is invisible to the agent code.
 - **Zero runtime deps** beyond a JSON-schema validator. Every framework
@@ -52,30 +53,36 @@ Every tool call flows through a single decision pipeline:
        │
   ┌────▼─────┐
   │ 1. Policy│  Deterministic. Evaluates your YAML rules.
-  │   engine │  First-match-wins. Returns allow/deny/assist/prompt.
+  │   engine │  First-match-wins. Returns allow/deny/assist/prompt/inspect.
   └────┬─────┘
        │
   ┌────▼─────┐
-  │ 2. AI    │  (optional) If policy says "assist:<name>", an LLM-driven
+  │ 2. Context│ (optional) If policy says "inspect:<name>", an inspector
+  │   insp.  │  scans full agent context for indirect prompt injection.
+  └────┬─────┘
+       │
+  ┌────▼─────┐
+  │ 3. AI    │  (optional) If policy says "assist:<name>", an LLM-driven
   │   asst.  │  assistant scores risk and returns a recommendation.
   └────┬─────┘
        │
   ┌────▼─────┐
-  │ 3. User  │  (optional) If still unresolved, prompts you via CLI,
+  │ 4. User  │  (optional) If still unresolved, prompts you via CLI,
   │   prompt │  Slack, web widget, or webhook. You decide.
   └────┬─────┘
        │
   ┌────▼─────┐
-  │ 4. Fatigue│  Deduplicates repeated prompts, batches similar calls,
+  │ 5. Fatigue│  Deduplicates repeated prompts, batches similar calls,
   │   layer  │  enforces rate limits, supports "ask me later".
   └────┬─────┘
        │
   ┌────▼─────┐
-  │ 5. Audit │  Every decision is logged — what, who, why, how long.
+  │ 6. Audit │  Every decision is logged — what, who, why, how long.
   │   + return│  Hash-chained, tamper-evident, verifiable.
   └────┬─────┘
        │
   Decision: allow / allow_once / allow_and_persist / deny / prompt / defer
+            + quarantine (injection detected — block + memory wipe)
 ```
 
 ### Decision types
@@ -88,6 +95,7 @@ Every tool call flows through a single decision pipeline:
 | `deny` | Blocked. Final — no assistant or responder can override. |
 | `prompt` | Hand to the responder. Ask the user what to do. |
 | `defer` | Rate-limited or batched. Try again later. |
+| `quarantine` | Injection detected. Block call + trigger SDK memory wipe. |
 
 ---
 
@@ -141,7 +149,7 @@ overlays:
         options: [allow_once, deny]       # no standing allows
 
       - match: { tool: "email.send" }
-        action: assist:constitution       # check against your constitution doc
+        action: inspect:ipi-defender      # scan for prompt injection first
 ```
 
 On a `deny` or `defer`, the wrapper raises `custos.exceptions.PermissionDenied`.
@@ -213,9 +221,9 @@ them programmatically. First-match-wins, default-deny. Hot-reloadable.
 Supports tool-name globs, arg predicates, risk tiers, delegation depth,
 and side-effect matching. [Docs →](docs/policy.md)
 
-### Permission assistants (A1–A11)
+### Permission assistants (A1–A12)
 Pluggable AI assistants that handle policy escalations. A1–A6 reproduce the
-Janus reference designs; A7–A11 are Custos extensions:
+Janus reference designs; A7–A12 are Custos extensions:
 
 | ID | Name | Strategy | Needs LLM? |
 |----|------|----------|------------|
@@ -230,6 +238,7 @@ Janus reference designs; A7–A11 are Custos extensions:
 | A9 | Context adaptive | Choose prompt granularity by sensitivity. | Yes |
 | A10 | Learned policy | Learn from your past decisions. | No |
 | A11 | Delegation aware | Stricter rules for deeper delegation chains. | No |
+| A12 | IPI defender | Context inspector. Detects indirect prompt injection via pattern matching + leave-one-out causal attribution. | configurable |
 
 [Docs →](docs/assistants.md)
 
@@ -273,7 +282,7 @@ agent sees normal tool signatures; Custos sits inside as a gating layer.
 ### Eval harness
 `custos eval` CLI for CI. Two suites: (1) a Janus v1 parity matrix reproducing
 the published 72-cell evaluation, and (2) a Custos-authored adversarial suite
-(53+ cells covering prompt injection, confused deputy, tool spoofing,
+(53+ cells covering prompt injection, IPI detection, confused deputy, tool spoofing,
 delegation abuse, policy poisoning, and quorum bypass). Default backend is
 local Ollama — no API spend. [Docs →](docs/eval.md)
 
@@ -293,10 +302,11 @@ Janus code (Apache-2.0). Key differences:
 
 - **Production runtime** — Zero hard deps beyond `jsonschema`. Janus depends on
   Google ADK and LiteLLM.
-- **5 additional assistants** — A7 (rule-policy), A8 (summarize-batch), A9
-  (context-adaptive), A10 (learned-policy), A11 (delegation-aware).
-- **6 decision types** — Janus has 3 (approve_once / create_policy / reject).
-  Custos adds `allow`, `prompt`, and `defer`.
+- **6 additional assistants** — A7 (rule-policy), A8 (summarize-batch), A9
+  (context-adaptive), A10 (learned-policy), A11 (delegation-aware), A12
+  (ipi-defender).
+- **7 decision types** — Janus has 3 (approve_once / create_policy / reject).
+  Custos adds `allow`, `prompt`, `defer`, and `quarantine`.
 - **Cross-language** — Python SDK, TypeScript SDK (`@taqiy/custos-core`), and a
   gRPC sidecar for out-of-process deployment.
 - **Audit tamper evidence** — Hash-chained JSONL with HMAC signing and
@@ -320,7 +330,8 @@ Apache-2.0. See [LICENSE](LICENSE).
 | [Tutorial](docs/tutorial.md) | 20-30 minute walk from zero to gated agent |
 | [Policy schema](docs/policy.md) | Full YAML reference: match criteria, actions, overlays |
 | [Policy cookbook](docs/cookbook/index.md) | 5 runnable recipes for common patterns |
-| [Assistant catalog](docs/assistants.md) | A1-A11 with `exfiltrates_args` flags |
+| [Assistant catalog](docs/assistants.md) | A1-A12 with `exfiltrates_args` flags |
+| [Context inspectors](docs/inspectors.md) | A12 IPI defence + leave-one-out attribution |
 | [Responder reference](docs/responders.md) | CLI, web, Slack, webhook, multi-approver |
 | [Audit reference](docs/audit.md) | Sinks, hash-chaining, `custos audit verify` |
 | [Eval harness](docs/eval.md) | Janus-v1 parity + adversarial CI suites |

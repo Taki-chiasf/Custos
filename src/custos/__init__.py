@@ -27,7 +27,7 @@ from custos.schema import (
     ToolDescriptor,
 )
 
-__version__ = "1.0.1"
+__version__ = "1.1.0a1"
 
 __all__ = [
     "Gateway",

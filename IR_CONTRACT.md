@@ -1,6 +1,9 @@
 # Custos Cross-Language IR Contract
 
-**Status:** v1.0 — locked at   (2026-07-20). Closes  Q12.
+**Status:** v1.1 — additive over v1.0 (2026-07-20). Closes  Q12.
+**v1.1 additions:** `Decision.QUARANTINE`, `AuditEvent.inspector`, `PolicyOutcome.INSPECT`,
+`ContextSnapshot`, `InspectionResult`, `InspectionVerdict` (Python-only; TS parity tracked in
+packages/custos-ts/).
 **Scope:** the deterministic subset of Custos that MUST behave identically
 across the Python `custos` package and the TypeScript `@taqiy/custos-core`
 package , including the  sidecar gRPC schema that carries

@@ -91,10 +91,12 @@ None is a issue for v1.0 per the locked  plan (D16–D19).
 - **Assistant prompt-injection from args**: a hostile tool / args string
   injected into an LLM assistant's judge prompt could attempt to flip the
   verdict to `allow`. Mitigation today is the  floor (an assistant
-  `allow` cannot bypass a policy `deny`). A second layer would be a
-  structured-input-only assistant protocol (no free-text assembly of the
-  args into the judge prompt); a candidate for v1.1 alongside the
-  `AssistantAsync` signature work.
+  `allow` cannot bypass a policy `deny`). **v1.1 adds A12
+  `ipi-defender`** — a context inspector with fast-path pattern matching
+  + leave-one-out causal attribution that runs before the assistant
+  (policy ``inspect:ipi-defender`` action). See
+  `docs/inspectors.md`. A deeper structured-input-only assistant protocol
+  is a candidate for v1.2.
 - **Phantom approver on Slack** where a `payload.user.id` is spoofed inside
   a forged Slack signature. Mitigation today is the Slack v0 signature
   validation + `approver_allowlist`. A second layer (per-approver

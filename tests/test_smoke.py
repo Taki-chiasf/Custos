@@ -29,7 +29,6 @@ def test_version_is_pep440ish() -> None:
 
 
 def test_decision_enum_contract() -> None:
-    # : the six Custos decisions.
     assert {d.value for d in Decision} == {
         "allow",
         "allow_once",
@@ -37,14 +36,15 @@ def test_decision_enum_contract() -> None:
         "deny",
         "prompt",
         "defer",
+        "quarantine",
     }
     assert Decision.ALLOW.is_allow
     assert not Decision.DENY.is_allow
+    assert not Decision.QUARANTINE.is_allow
 
 
 def test_policy_outcome_contract() -> None:
-    #  step 2 + : policy deny is final.
-    assert {d.value for d in PolicyOutcome} == {"allow", "deny", "prompt", "assist"}
+    assert {d.value for d in PolicyOutcome} == {"allow", "deny", "prompt", "assist", "inspect"}
 
 
 def test_side_effect_taxonomy() -> None:
