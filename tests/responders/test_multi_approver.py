@@ -381,7 +381,8 @@ async def test_e2e_quorum_met_audit_records_met(tmp_path: Path) -> None:
             side_effects=frozenset({SideEffect.PAYMENT}),
         ),
     )
-    decision = await gw.decide(inv)
+    result = await gw.decide(inv)
+    decision = result.decision
     assert decision == Decision.ALLOW
     evt = json.loads(audit_path.read_text(encoding="utf-8").strip())
     assert evt["quorum_state"] == "met"
@@ -425,7 +426,8 @@ async def test_e2e_quorum_deny_audit_records_failed(tmp_path: Path) -> None:
             side_effects=frozenset({SideEffect.PAYMENT}),
         ),
     )
-    decision = await gw.decide(inv)
+    result = await gw.decide(inv)
+    decision = result.decision
     assert decision == Decision.DENY
     evt = json.loads(audit_path.read_text(encoding="utf-8").strip())
     assert evt["quorum_state"] == "failed"
@@ -467,7 +469,8 @@ async def test_e2e_quorum_defer_audit_records_pending(tmp_path: Path) -> None:
             side_effects=frozenset({SideEffect.PAYMENT}),
         ),
     )
-    decision = await gw.decide(inv)
+    result = await gw.decide(inv)
+    decision = result.decision
     assert decision == Decision.DEFER
     evt = json.loads(audit_path.read_text(encoding="utf-8").strip())
     assert evt["quorum_state"] == "pending"
@@ -502,7 +505,8 @@ async def test_e2e_no_quorum_state_is_none_in_audit(tmp_path: Path) -> None:
         context=SubjectContext(user_id="u"),
         descriptor=ToolDescriptor(name="t", risk_tier=1),
     )
-    decision = await gw.decide(inv)
+    result = await gw.decide(inv)
+    decision = result.decision
     assert decision == Decision.ALLOW
     evt = json.loads(audit_path.read_text(encoding="utf-8").strip())
     assert evt["quorum_state"] is None

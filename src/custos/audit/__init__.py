@@ -235,46 +235,6 @@ class HashChainedAuditSink(AuditSink):
             self._last_hash = hashlib.sha256(line.encode("utf-8")).hexdigest()
 
 
-def _last_prev_hash(path: str) -> str:
-    """Return the ``prev_hash`` the next line should reference.
-
-    Reads the last non-empty line of ``path`` and returns its sha256 hex
-    digest. If the file is empty / missing / has no parseable final line,
-    returns :data:`GENESIS_HASH` so the first emitted line is a genesis
-    record.
-
-    Defensive: a corrupt or truncated final line fails closed to
-    :data:`GENESIS_HASH` - the next emit re-anchors and ``verify_chain``
-    will flag the discontinuity. Reading the prior line on every emit is
-    O(n_lines); the audit log is a long thin append-only file, so this is
-    acceptable for v1.0. A future optimization may cache the last hash in
-    the sink instance (with a flush-to-disk handshake for crash-safety).
-    """
-    try:
-        with open(path, "rb") as fh:
-            fh.seek(0, 2)
-            size = fh.tell()
-            if size == 0:
-                return GENESIS_HASH
-            # Walk back from EOF to the last non-empty line.
-            pos = size
-            last_line = b""
-            while pos > 0 and not last_line.strip():
-                pos = max(0, pos - 4096)
-                fh.seek(pos)
-                chunk = fh.read(size - pos) if pos == 0 else fh.read()
-                lines = chunk.splitlines()
-                if lines and lines[-1] == b"" and len(lines) > 1:
-                    last_line = lines[-2]
-                elif lines:
-                    last_line = lines[-1]
-            if not last_line.strip():
-                return GENESIS_HASH
-            return hashlib.sha256(last_line).hexdigest()
-    except FileNotFoundError:
-        return GENESIS_HASH
-
-
 @dataclass
 class ChainVerifyError:
     """One defect found by :func:`verify_chain` ."""

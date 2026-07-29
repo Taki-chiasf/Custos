@@ -25,6 +25,7 @@ from custos.schema import (
     AssistantOutput,
     AuditEvent,
     ContextSnapshot,
+    DecideResult,
     Decision,
     InspectionResult,
     InspectionVerdict,
@@ -80,7 +81,6 @@ class Gateway:
         self.default_timeout_ms = default_timeout_ms
         self.local_only = local_only
         self._audit = _resolve_audit_sink(audit_sink)
-        self.last_event: AuditEvent | None = None
 
         registry = AssistantRegistry(local_only=local_only)
         if assistants:
@@ -115,12 +115,13 @@ class Gateway:
     def audit_sink(self, sink: AuditSink) -> None:
         self._audit = sink
 
-    def decide(self, inv: Invocation, *, snapshot: ContextSnapshot | None = None) -> Decision:
+    def decide(self, inv: Invocation, *, snapshot: ContextSnapshot | None = None) -> DecideResult:
         """Run the full pipeline for one invocation (steps 1-8).
 
-        Returns the final :class:`Decision`. Emits exactly one
-        :class:`AuditEvent` per call . The ASSIST/PROMPT branch is
-        exception-safe (H8): assistant/responder/fatigue errors are
+        Returns a :class:`DecideResult` carrying both the final
+        :class:`Decision` and the structured :class:`AuditEvent`. Emits
+        exactly one audit event per call . The ASSIST/PROMPT branch
+        is exception-safe (H8): assistant/responder/fatigue errors are
         caught and converted to a safe ``DENY`` with error reasoning; the
         audit event and fatigue seam C ALWAYS run (finally).
 
@@ -138,7 +139,7 @@ class Gateway:
         # 3. Floor/ceiling : policy DENY/ALLOW short-circuit before the
         #    try block so their audit events are always emitted directly.
         if outcome == PolicyOutcome.DENY:
-            self._emit_audit(
+            event = self._emit_audit(
                 inv,
                 Decision.DENY,
                 policy_match,
@@ -148,10 +149,10 @@ class Gateway:
                 reasoning="policy: deny",
                 responder=None,
             )
-            return Decision.DENY
+            return DecideResult(decision=Decision.DENY, audit=event)
 
         if outcome == PolicyOutcome.ALLOW:
-            self._emit_audit(
+            event = self._emit_audit(
                 inv,
                 Decision.ALLOW,
                 policy_match,
@@ -161,13 +162,13 @@ class Gateway:
                 reasoning="policy: allow",
                 responder=None,
             )
-            return Decision.ALLOW
+            return DecideResult(decision=Decision.ALLOW, audit=event)
 
         # Seam A: dedup/suppression cache lookup.
         if self.fatigue is not None:
             cached = self.fatigue.lookup(inv)
             if cached is not None:
-                self._emit_audit(
+                event = self._emit_audit(
                     inv,
                     cached,
                     policy_match,
@@ -177,7 +178,7 @@ class Gateway:
                     reasoning=f"fatigue: cache hit ({self.fatigue.name})",
                     responder=None,
                 )
-                return cached
+                return DecideResult(decision=cached, audit=event)
 
         # Steps 4–6 — the ASSIST/PROMPT/fatigue/responder branch. Wrapped in
         # try/finally so the audit event and seam C ALWAYS execute (H8).
@@ -303,20 +304,15 @@ class Gateway:
                     )
                     decision = response.choice
 
-            return decision
-
         except Exception as exc:
             decision = Decision.DENY
             reasoning = f"gateway error: {type(exc).__name__}"
             risk = 1.0
             response = None
             fatigue_cacheable = False
-            return decision
 
         finally:
-            # 7. Timeout enforcement is handled inside the responder.
-            # 8. Audit + fatigue seam C — ALWAYS (H8).
-            self._emit_audit(
+            event = self._emit_audit(
                 inv,
                 decision,
                 policy_match,
@@ -332,6 +328,8 @@ class Gateway:
             if self.fatigue is not None:
                 with suppress(Exception):
                     self.fatigue.after_prompt(inv, decision, response, cacheable=fatigue_cacheable)
+
+        return DecideResult(decision=decision, audit=event)
 
     def _apply_assistant_output(
         self,
@@ -421,8 +419,11 @@ class Gateway:
         approver: str | None = None,
         inspector: str | None = None,
         quorum_state: str | None = None,
-    ) -> None:
-        """Emit the structured audit event . Redacts args first ."""
+    ) -> AuditEvent:
+        """Emit the structured audit event . Redacts args first .
+        Returns the emitted event so callers can capture it without
+        reading mutating instance state.
+        """
         latency_ms = int((time.monotonic() - start) * 1000)
         redacted_inv = inv.with_redacted_args()
         event = AuditEvent(
@@ -441,7 +442,7 @@ class Gateway:
             quorum_state=quorum_state,
         )
         self._audit.emit(event)
-        self.last_event = event
+        return event
 
     def wrap(self, tools: Sequence[Any]) -> list[Any]:
         """Wrap an agent's tool registry so every call is gated (US-1).

@@ -23,6 +23,7 @@ from typing import Any
 __all__ = [
     "SideEffect",
     "Decision",
+    "DecideResult",
     "PolicyOutcome",
     "InspectionVerdict",
     "WipeStrategy",
@@ -518,6 +519,23 @@ class PromptResponse:
     signature: bytes | None = None
     nonce: str | None = None
     approver: str | None = None
+
+
+@dataclass(frozen=True)
+class DecideResult:
+    """Result from ``Gateway.decide`` / ``AsyncGateway.decide`` .
+
+    Carries both the decision and the structured audit event so callers
+    do not need to read mutating instance-level ``last_event`` state —
+    the audit event is local to the call and safe under concurrency.
+
+    Attributes:
+        decision: the final decision.
+        audit: the structured audit event emitted for this call.
+    """
+
+    decision: Decision
+    audit: AuditEvent
 
 
 @dataclass(frozen=True)

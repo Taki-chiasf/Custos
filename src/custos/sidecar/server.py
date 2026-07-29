@@ -443,7 +443,7 @@ class GatewayServicer:
         # the `CapturingAuditSink` mounted on the gateway (the operator's
         # configured sink is wrapped so it still fires for observability).
         try:
-            decision = self._cfg.gateway.decide(inv)
+            result = self._cfg.gateway.decide(inv)
         except Exception as exc:  # noqa: BLE001 -  exception safety
             return self._deny_response(
                 context=None,
@@ -453,20 +453,8 @@ class GatewayServicer:
                 risk_score=1.0,
             )
 
-        audit = self._capturing_sink.take()
-        if audit is None:
-            # No audit event emitted (shouldn't happen;  mandates
-            # one per call). Treat as an audit anomaly and force a safe
-            # DENY — do NOT surface the live decision (C5 regression,
-            # council 2026-07-22: the prior code propagated the real
-            # decision proto, masking the anomaly).
-            return self._deny_response(
-                context=None,
-                request=request,
-                decision_proto=DecisionProto.DENY,
-                reasoning="sidecar: no audit event emitted by gateway (audit anomaly)",
-                risk_score=0.0,
-            )
+        decision = result.decision
+        audit = result.audit
 
         decision_proto_value = _safe_decision_enum(decision)
         # Sign the verdict.

@@ -25,7 +25,6 @@ import asyncio
 import json
 import tempfile
 from pathlib import Path
-from typing import Any
 
 from custos import AsyncGateway, Policy
 from custos.audit import FileAuditSink
@@ -39,7 +38,6 @@ from custos.schema import (
     SubjectContext,
     ToolDescriptor,
 )
-
 
 # --------------------------------------------------------------------------- #
 # Stub responders: each child stands in for a Slack / web surface where one
@@ -121,7 +119,7 @@ async def _run_case(
             side_effects=frozenset({SideEffect.PAYMENT}),
         ),
     )
-    decision = await gw2.decide(inv)
+    decision = (await gw2.decide(inv)).decision
     print(f"  {label}: {decision.value}")
 
 

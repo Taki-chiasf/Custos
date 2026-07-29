@@ -29,6 +29,7 @@ from custos.fatigue import InMemoryFatigueLayer
 from custos.policy import Policy, PolicyFile, PolicyOverlaySpec, PolicyRuleSpec
 from custos.schema import (
     AssistantOutput,
+    DecideResult,
     Decision,
     Invocation,
     PromptRequest,
@@ -179,7 +180,7 @@ class AsyncGatewayTiny:
             fatigue=fatigue,
         )
 
-    async def decide(self, inv: Invocation) -> Decision:
+    async def decide(self, inv: Invocation) -> DecideResult:
         return await self._gw.decide(inv)
 
     @property
@@ -195,19 +196,19 @@ class AsyncGatewayTiny:
 @_async_test
 async def test_policy_allow_returns_allow() -> None:
     gw = AsyncGatewayTiny(_policy([PolicyRuleSpec(match={"tool": "fs.*"}, action="allow")]))
-    assert await gw.decide(_inv()) == Decision.ALLOW
+    assert (await gw.decide(_inv())).decision == Decision.ALLOW
 
 
 @_async_test
 async def test_policy_deny_returns_deny() -> None:
     gw = AsyncGatewayTiny(_policy([PolicyRuleSpec(match={"tool": "*"}, action="deny")]))
-    assert await gw.decide(_inv()) == Decision.DENY
+    assert (await gw.decide(_inv())).decision == Decision.DENY
 
 
 @_async_test
 async def test_default_deny_when_no_rule_matches() -> None:
     gw = AsyncGatewayTiny(_policy([]))
-    assert await gw.decide(_inv()) == Decision.DENY
+    assert (await gw.decide(_inv())).decision == Decision.DENY
 
 
 # --------------------------------------------------------------------------- #
@@ -222,7 +223,7 @@ async def test_policy_deny_never_invokes_async_assistant() -> None:
         _policy([PolicyRuleSpec(match={"tool": "*"}, action="deny")]),
         assistant=asst,
     )
-    assert await gw.decide(_inv()) == Decision.DENY
+    assert (await gw.decide(_inv())).decision == Decision.DENY
     assert asst.calls == 0
 
 
@@ -238,7 +239,7 @@ async def test_assist_async_allow_once() -> None:
         _policy([PolicyRuleSpec(match={"tool": "fs.*"}, action="assist:fake-async")]),
         assistant=asst,
     )
-    assert await gw.decide(_inv()) == Decision.ALLOW_ONCE
+    assert (await gw.decide(_inv())).decision == Decision.ALLOW_ONCE
     assert asst.calls == 1
 
 
@@ -249,7 +250,7 @@ async def test_assist_async_deny() -> None:
         _policy([PolicyRuleSpec(match={"tool": "fs.*"}, action="assist:fake-async")]),
         assistant=asst,
     )
-    assert await gw.decide(_inv()) == Decision.DENY
+    assert (await gw.decide(_inv())).decision == Decision.DENY
 
 
 @_async_test
@@ -261,7 +262,7 @@ async def test_assist_async_prompt_routes_to_async_responder() -> None:
         assistant=asst,
         responder=responder,
     )
-    assert await gw.decide(_inv()) == Decision.ALLOW
+    assert (await gw.decide(_inv())).decision == Decision.ALLOW
     assert responder.calls == 1
 
 
@@ -281,11 +282,11 @@ async def test_assist_async_allow_and_persist_inserts_rule() -> None:
     gw = AsyncGatewayTiny(policy, assistant=asst)
     # First call resolves via the assistant + returns ALLOW_ONCE (the persist
     # happens under the hood so the next identical call short-circuits).
-    assert await gw.decide(_inv(args={"path": "/tmp/x"})) == Decision.ALLOW_ONCE
+    assert (await gw.decide(_inv(args={"path": "/tmp/x"}))).decision == Decision.ALLOW_ONCE
     # The persisted rule is inserted before the matched rule; an identical call
     # now hits policy ALLOW without re-invoking the assistant.
     assert asst.calls == 1
-    assert await gw.decide(_inv(args={"path": "/tmp/x"})) == Decision.ALLOW
+    assert (await gw.decide(_inv(args={"path": "/tmp/x"}))).decision == Decision.ALLOW
     assert asst.calls == 1
 
 
@@ -301,7 +302,7 @@ async def test_sync_assistant_is_bridged_via_to_thread() -> None:
         _policy([PolicyRuleSpec(match={"tool": "fs.*"}, action="assist:fake-sync")]),
         assistant=asst,
     )
-    assert await gw.decide(_inv()) == Decision.ALLOW_ONCE
+    assert (await gw.decide(_inv())).decision == Decision.ALLOW_ONCE
     assert asst.calls == 1
 
 
@@ -312,7 +313,7 @@ async def test_sync_responder_is_bridged_via_to_thread() -> None:
         _policy([PolicyRuleSpec(match={"tool": "fs.*"}, action="prompt")]),
         responder=responder,
     )
-    assert await gw.decide(_inv()) == Decision.DENY
+    assert (await gw.decide(_inv())).decision == Decision.DENY
     assert responder.calls == 1
 
 
@@ -324,7 +325,7 @@ async def test_sync_responder_is_bridged_via_to_thread() -> None:
 @_async_test
 async def test_prompt_without_responder_returns_safe_deny() -> None:
     gw = AsyncGatewayTiny(_policy([PolicyRuleSpec(match={"tool": "fs.*"}, action="prompt")]))
-    assert await gw.decide(_inv()) == Decision.DENY
+    assert (await gw.decide(_inv())).decision == Decision.DENY
 
 
 # --------------------------------------------------------------------------- #
@@ -337,7 +338,7 @@ async def test_assist_without_assistant_returns_safe_deny() -> None:
     gw = AsyncGatewayTiny(
         _policy([PolicyRuleSpec(match={"tool": "fs.*"}, action="assist:missing")])
     )
-    assert await gw.decide(_inv()) == Decision.DENY
+    assert (await gw.decide(_inv())).decision == Decision.DENY
 
 
 # --------------------------------------------------------------------------- #
@@ -353,7 +354,8 @@ async def test_raising_responder_returns_safe_deny_and_runs_audit(tmp_path: Path
         responder=RaisingAsyncResponder(),
         audit_sink=sink,
     )
-    decision = await gw.decide(_inv())
+    result = await gw.decide(_inv())
+    decision = result.decision
     assert decision == Decision.DENY
     # Audit was still emitted (H8 finally-block invariant).
     lines = (tmp_path / "audit.jsonl").read_text(encoding="utf-8").strip().splitlines()
@@ -378,8 +380,8 @@ async def test_fatigue_dedup_caches_second_call() -> None:
         fatigue=fatigue,
     )
     inv = _inv(args={"path": "/tmp/a"})
-    first = await gw.decide(inv)
-    second = await gw.decide(inv)
+    first = (await gw.decide(inv)).decision
+    second = (await gw.decide(inv)).decision
     assert first == Decision.ALLOW
     assert second == Decision.ALLOW  # cache hit
     assert responder.calls == 1  # second call short-circuited at the fatigue seam

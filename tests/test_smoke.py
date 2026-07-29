@@ -76,7 +76,7 @@ def test_gateway_default_denies_unknown_invocation() -> None:
     ctx = SubjectContext(user_id="u1")
     inv = Invocation(tool="fs.read", args={}, context=ctx)
     gw = Gateway(policy=Policy(), responder=NoopResponder(), audit_sink=None)
-    assert gw.decide(inv) == Decision.DENY
+    assert gw.decide(inv).decision == Decision.DENY
 
 
 def test_null_audit_sink_swallow() -> None:

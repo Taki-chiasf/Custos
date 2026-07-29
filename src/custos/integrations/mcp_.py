@@ -140,7 +140,8 @@ def gated_tool(
                 context=ctx,
                 descriptor=descriptor,
             )
-            decision = await gateway.decide(inv)
+            result = await gateway.decide(inv)
+            decision = result.decision
             if decision in (Decision.DENY, Decision.DEFER):
                 raise PermissionDenied(policy_tool_name, decision.value)
             res = fn(*args, **kwargs)
@@ -241,7 +242,8 @@ def _make_gated_async(
             context=ctx,
             descriptor=descriptor,
         )
-        decision = await gateway.decide(inv)
+        result = await gateway.decide(inv)
+        decision = result.decision
         if decision in (Decision.DENY, Decision.DEFER):
             raise PermissionDenied(name, decision.value)
         res = original_fn(*args, **kwargs)

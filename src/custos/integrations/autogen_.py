@@ -196,7 +196,8 @@ def _make_gated_autogen_callable(
             context=ctx,
             descriptor=descriptor,
         )
-        decision = await gateway.decide(inv)
+        result = await gateway.decide(inv)
+        decision = result.decision
         if decision in (Decision.DENY, Decision.DEFER):
             raise PermissionDenied(name, decision.value)
         # AutoGen 0.4 invokes registered tools with the parsed JSON dict

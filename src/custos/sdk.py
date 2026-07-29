@@ -202,8 +202,8 @@ def _wrap_one(
             descriptor=descriptor,
         )
         snapshot = context_provider.get_snapshot() if context_provider else None
-        decision = gateway.decide(inv, snapshot=snapshot)
-        if decision == Decision.QUARANTINE and memory_wipe is not None:
+        result = gateway.decide(inv, snapshot=snapshot)
+        if result.decision == Decision.QUARANTINE and memory_wipe is not None:
             if context_provider is not None:
                 current_ctx = context_provider.get_snapshot()
                 memory_wipe.sanitize(
@@ -211,24 +211,22 @@ def _wrap_one(
                     (),
                     WipeStrategy.FULL,
                 )
-            last = gateway.last_event
             raise PermissionDenied(
                 name,
-                decision.value,
-                reasoning=last.reasoning if last else "",
-                risk=last.risk_score if last else 0.0,
-                policy_match=last.policy_match if last else None,
-                assistant=last.assistant if last else None,
+                result.decision.value,
+                reasoning=result.audit.reasoning,
+                risk=result.audit.risk_score,
+                policy_match=result.audit.policy_match,
+                assistant=result.audit.assistant,
             )
-        if decision in (Decision.DENY, Decision.DEFER):
-            last = gateway.last_event
+        if result.decision in (Decision.DENY, Decision.DEFER):
             raise PermissionDenied(
                 name,
-                decision.value,
-                reasoning=last.reasoning if last else "",
-                risk=last.risk_score if last else 0.0,
-                policy_match=last.policy_match if last else None,
-                assistant=last.assistant if last else None,
+                result.decision.value,
+                reasoning=result.audit.reasoning,
+                risk=result.audit.risk_score,
+                policy_match=result.audit.policy_match,
+                assistant=result.audit.assistant,
             )
         return tool(*args, **kwargs)
 

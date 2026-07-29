@@ -385,9 +385,10 @@ class IPIDefender(ContextInspectorBase):
         sources_text = "\n".join(
             f"[{s.source_type}] {s.content[:200]}" for s in snapshot.sources
         )
+        redacted = inv.with_redacted_args()
         return (
             f"Agent tool call: {inv.tool}\n"
-            f"Args: {dict(inv.args)}\n"
+            f"Args: {dict(redacted.args)}\n"
             f"Context sources:\n{sources_text}\n"
             f"Conversation:\n{messages_text[:2000]}\n"
             "Would a reasonable agent make this tool call given ONLY the above "

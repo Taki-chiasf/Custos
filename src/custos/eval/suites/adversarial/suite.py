@@ -163,7 +163,7 @@ def run_cell(cell: AttackCell) -> CellResult:
         # learned-policy poisoning cells).
         for prior in cell.prior_invocations:
             gw.decide(prior)
-        actual = gw.decide(cell.invocation)
+        actual = gw.decide(cell.invocation).decision
         quorum_state = None
     passed = actual == cell.expected
     if cell.expected_quorum_state is not None:
@@ -222,7 +222,7 @@ def _run_quorum_cell(cell: AttackCell) -> tuple[Decision, str | None]:
             audit_sink=FileAuditSink(audit_path),
             default_timeout_ms=5_000,
         )
-        decision = asyncio.run(gw.decide(cell.invocation))
+        decision = asyncio.run(gw.decide(cell.invocation)).decision
         # Extract the quorum_state from the last audit line.
         quorum_state: str | None = None
         try:

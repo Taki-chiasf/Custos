@@ -156,11 +156,11 @@ def test_dedup_caches_resolved_decision_and_skips_assistant() -> None:
     )
     gw = _gw(_policy_assist(), assistant=asst, fatigue=fatigue)
 
-    first = gw.decide(_inv())
+    first = gw.decide(_inv()).decision
     assert first == Decision.ALLOW_ONCE
     assert asst.calls == 1
 
-    second = gw.decide(_inv())  # same tool + args
+    second = gw.decide(_inv()).decision  # same tool + args
     assert second == Decision.ALLOW_ONCE
     assert asst.calls == 1  # assistant skipped (cache hit)
 
@@ -247,11 +247,11 @@ def test_suppression_uses_response_ttl_not_default_dedup_ttl() -> None:
     )
     gw = _gw(_policy_assist(), assistant=asst, responder=responder, fatigue=fatigue)
 
-    first = gw.decide(_inv())
+    first = gw.decide(_inv()).decision
     assert first == Decision.ALLOW
     assert responder.calls == 1
     time.sleep(0.1)  # past the default dedup TTL but within suppression
-    second = gw.decide(_inv())
+    second = gw.decide(_inv()).decision
     assert second == Decision.ALLOW
     assert responder.calls == 1  # suppression cache hit; no re-prompt
 
@@ -262,10 +262,10 @@ def test_suppression_caches_deny_from_responder() -> None:
     responder = ScriptedResponder([PromptResponse(choice=Decision.DENY)])
     gw = _gw(_policy_prompt(), responder=responder, fatigue=fatigue)
 
-    first = gw.decide(_inv())
+    first = gw.decide(_inv()).decision
     assert first == Decision.DENY
     assert responder.calls == 1
-    second = gw.decide(_inv())  # cached DENY
+    second = gw.decide(_inv()).decision  # cached DENY
     assert second == Decision.DENY
     assert responder.calls == 1
 
@@ -280,10 +280,10 @@ def test_suppression_A_choice_from_cli_sets_ttl() -> None:
     asst = CountingAssistant(AssistantOutput(decision=Decision.PROMPT, risk=0.5, reasoning="ask"))
     gw = _gw(_policy_assist(), assistant=asst, responder=responder, fatigue=fatigue)
 
-    first = gw.decide(_inv())
+    first = gw.decide(_inv()).decision
     assert first == Decision.ALLOW
     time.sleep(0.05)  # past default dedup but within 10-min suppression
-    second = gw.decide(_inv())
+    second = gw.decide(_inv()).decision
     assert second == Decision.ALLOW
     assert asst.calls == 1  # assistant not re-invoked (suppression hit)
 
@@ -302,10 +302,10 @@ def test_defer_is_not_cached_re_prompts_next_call() -> None:
     )
     gw = _gw(_policy_prompt(), responder=responder, fatigue=fatigue)
 
-    first = gw.decide(_inv())
+    first = gw.decide(_inv()).decision
     assert first == Decision.DEFER
     assert responder.calls == 1
-    second = gw.decide(_inv())  # not cached -> re-prompts
+    second = gw.decide(_inv()).decision  # not cached -> re-prompts
     assert second == Decision.ALLOW
     assert responder.calls == 2
 
@@ -316,9 +316,9 @@ def test_defer_through_assistant_not_cached() -> None:
     asst = CountingAssistant(AssistantOutput(decision=Decision.DEFER, risk=0.5, reasoning="later"))
     gw = _gw(_policy_assist(), assistant=asst, fatigue=fatigue)
 
-    first = gw.decide(_inv())
+    first = gw.decide(_inv()).decision
     assert first == Decision.DEFER
-    second = gw.decide(_inv())
+    second = gw.decide(_inv()).decision
     assert second == Decision.DEFER
     assert asst.calls == 2  # not cached -> invoked again
 
@@ -332,7 +332,7 @@ def test_cli_l_choice_returns_defer() -> None:
     asst = CountingAssistant(AssistantOutput(decision=Decision.PROMPT, risk=0.5, reasoning="ask"))
     gw = _gw(_policy_assist(), assistant=asst, responder=responder)
 
-    result = gw.decide(_inv())
+    result = gw.decide(_inv()).decision
     assert result == Decision.DEFER
 
 
@@ -350,14 +350,14 @@ def test_rate_limit_allows_up_to_max_then_denies() -> None:
     gw = _gw(_policy_prompt(), responder=responder, fatigue=fatigue)
 
     # First two: RESPONDER is invoked (different args each time -> no dedup).
-    r1 = gw.decide(_inv(args={"to": "a@x.com"}))
-    r2 = gw.decide(_inv(args={"to": "b@x.com"}))
+    r1 = gw.decide(_inv(args={"to": "a@x.com"})).decision
+    r2 = gw.decide(_inv(args={"to": "b@x.com"})).decision
     assert r1 == Decision.ALLOW
     assert r2 == Decision.ALLOW
     assert responder.calls == 2
 
     # Third: rate-limit overflow -> DENY, responder NOT called.
-    r3 = gw.decide(_inv(args={"to": "c@x.com"}))
+    r3 = gw.decide(_inv(args={"to": "c@x.com"})).decision
     assert r3 == Decision.DENY
     assert responder.calls == 2  # responder skipped
 
@@ -384,7 +384,7 @@ def test_rate_limit_zero_disables() -> None:
     gw = _gw(_policy_prompt(), responder=responder, fatigue=fatigue)
 
     for i in range(5):
-        assert gw.decide(_inv(args={"to": f"u{i}@x.com"})) == Decision.ALLOW
+        assert gw.decide(_inv(args={"to": f"u{i}@x.com"})).decision == Decision.ALLOW
     assert responder.calls == 5
 
 
@@ -396,11 +396,11 @@ def test_rate_limit_counted_per_user() -> None:
 
     r_alice = gw.decide(
         Invocation(tool="t", args={"a": 1}, context=SubjectContext(user_id="alice"))
-    )
-    r_bob = gw.decide(Invocation(tool="t", args={"a": 2}, context=SubjectContext(user_id="bob")))
+    ).decision
+    r_bob = gw.decide(Invocation(tool="t", args={"a": 2}, context=SubjectContext(user_id="bob"))).decision
     r_alice2 = gw.decide(
         Invocation(tool="t", args={"a": 3}, context=SubjectContext(user_id="alice"))
-    )
+    ).decision
     assert r_alice == Decision.ALLOW
     assert r_bob == Decision.ALLOW
     assert r_alice2 == Decision.DENY  # alice's 2nd call -> rate-limited
@@ -456,7 +456,7 @@ def test_policy_allow_short_circuits_before_fatigue_lookup() -> None:
         ),
     )
     gw = _gw(Policy.from_spec(allow_policy), fatigue=fatigue)
-    assert gw.decide(_inv()) == Decision.ALLOW  # policy floor wins, not cache
+    assert gw.decide(_inv()).decision == Decision.ALLOW  # policy floor wins, not cache
 
 
 # --------------------------------------------------------------------------- #

@@ -21,7 +21,6 @@ from custos.audit import (
     GENESIS_HASH,
     FileAuditSink,
     HashChainedAuditSink,
-    _last_prev_hash,
     verify_chain,
 )
 from custos.cli import main as cli_main
@@ -375,43 +374,6 @@ def test_hash_chain_resumes_across_sink_instances(tmp_path: Path) -> None:
     rep = verify_chain(p)
     assert rep.is_ok
     assert rep.line_count == 2
-
-
-# --- _last_prev_hash (standalone helper) ---------------------------------------
-
-
-def test_last_prev_hash_empty_file_returns_genesis(tmp_path: Path) -> None:
-    p = tmp_path / "audit.jsonl"
-    p.write_text("", encoding="utf-8")
-    assert _last_prev_hash(str(p)) == GENESIS_HASH
-
-
-def test_last_prev_hash_file_not_found_returns_genesis(tmp_path: Path) -> None:
-    assert _last_prev_hash(str(tmp_path / "missing.jsonl")) == GENESIS_HASH
-
-
-def test_last_prev_hash_returns_sha256_of_last_line(tmp_path: Path) -> None:
-    import hashlib
-
-    p = tmp_path / "audit.jsonl"
-    sink = HashChainedAuditSink(p)
-    sink.emit(_event(ts=1))
-    sink.emit(_event(ts=2))
-    raw = p.read_bytes().split(b"\n")
-    nonempty = [ln for ln in raw if ln.strip()]
-    expected = hashlib.sha256(nonempty[-1]).hexdigest()
-    assert _last_prev_hash(str(p)) == expected
-
-
-def test_last_prev_hash_single_line_returns_sha256(tmp_path: Path) -> None:
-    import hashlib
-
-    p = tmp_path / "audit.jsonl"
-    sink = HashChainedAuditSink(p)
-    sink.emit(_event(ts=1))
-    raw = p.read_bytes().strip()
-    expected = hashlib.sha256(raw).hexdigest()
-    assert _last_prev_hash(str(p)) == expected
 
 
 # --- HashChainedAuditSink cached _get_prev_hash behaviour ---------------------

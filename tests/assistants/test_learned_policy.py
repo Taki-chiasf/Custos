@@ -297,7 +297,7 @@ def test_gateway_rejects_broad_persisted_rule_from_learned_policy() -> None:
         assistant=asst_with_poison,
         audit_sink=NullAuditSink(),
     )
-    decision = gw.decide(_inv(descriptor=_desc(1)))
+    decision = gw.decide(_inv(descriptor=_desc(1))).decision
     # The one-time allow is returned (ALLOW_AND_PERSIST → ALLOW_ONCE per)...
     assert decision == Decision.ALLOW_ONCE
     # ...BUT the broad ``any:true`` rule was rejected by H3 + NOT inserted.
@@ -333,11 +333,11 @@ def test_record_decision_after_gateway_user_resolved_prompt() -> None:
     inv = _inv(tool="fs.read", args={"path": "/tmp/x"}, descriptor=_desc(1))
     # First call: cold-start fallback deny → assistant returns DENY → gateway
     # sees DENY (no responder path; A10 doesn't PROMPT). Record nothing.
-    first = gw.decide(inv)
+    first = gw.decide(inv).decision
     assert first == Decision.DENY
     # Host now observes a user-choice for the SAME call via an external prompt
     # (simulating the host wiring record_decision to its own approval surface).
     asst.record_decision(inv, Decision.ALLOW)
     # Second call: learned-policy auto-resolves to ALLOW.
-    second = gw.decide(inv)
+    second = gw.decide(inv).decision
     assert second == Decision.ALLOW

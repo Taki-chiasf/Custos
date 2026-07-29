@@ -195,7 +195,8 @@ def _make_gated_async_fn(
             context=ctx,
             descriptor=descriptor,
         )
-        decision = await gateway.decide(inv)
+        result = await gateway.decide(inv)
+        decision = result.decision
         if decision in (Decision.DENY, Decision.DEFER):
             raise PermissionDenied(name, decision.value)
         res = original_fn(*args, **kwargs)

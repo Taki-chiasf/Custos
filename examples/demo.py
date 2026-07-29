@@ -149,7 +149,7 @@ def _make_email(gw: Gateway):
             args={"to": to, "body": body},
             context=SubjectContext(user_id="demo-user"),
         )
-        decision = gw.decide(inv)
+        decision = gw.decide(inv).decision
         if decision in (Decision.DENY, Decision.DEFER):
             raise PermissionDeniedMock("email.send", decision.value)
         return f"sent to {to}"

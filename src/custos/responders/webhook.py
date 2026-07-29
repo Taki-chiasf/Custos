@@ -24,6 +24,7 @@ import json
 import threading
 import time
 import urllib.request
+from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -77,6 +78,7 @@ class WebhookResponder:
         max_stale_seconds: int = 300,
         http_post: Callable[[str, bytes, dict[str, str], int], WebhookResponse] | None = None,
         clock: Callable[[], float] | None = None,
+        max_nonce_cache: int = 100_000,
     ) -> None:
         self.url = url
         self.secret = secret
@@ -84,7 +86,8 @@ class WebhookResponder:
         self.max_stale_seconds = max_stale_seconds
         self._http_post = http_post or _default_http_post
         self._clock = clock or time.time
-        self._seen_nonces: set[str] = set()
+        self._max_nonce_cache = max_nonce_cache
+        self._seen_nonces: OrderedDict[str, None] = OrderedDict()
         self._lock = threading.Lock()
 
     def prompt(self, req: PromptRequest) -> PromptResponse:
@@ -157,10 +160,14 @@ class WebhookResponder:
             return PromptResponse(choice=Decision.DENY)
 
         # Verify nonce has not been seen (replay defense).
+        nonce_str = str(nonce)
         with self._lock:
-            if nonce in self._seen_nonces:
+            if nonce_str in self._seen_nonces:
                 return PromptResponse(choice=Decision.DENY)
-            self._seen_nonces.add(str(nonce))
+            # Evict oldest entry when at capacity (LRU — memory guard).
+            if len(self._seen_nonces) >= self._max_nonce_cache:
+                self._seen_nonces.popitem(last=False)
+            self._seen_nonces[nonce_str] = None
 
         # Map choice string to Decision enum.
         try:

@@ -252,7 +252,8 @@ def _make_gated_async_fn(
             descriptor=descriptor,
         )
         snapshot = context_provider.get_snapshot() if context_provider else None
-        decision = await gateway.decide(inv, snapshot=snapshot)
+        result = await gateway.decide(inv, snapshot=snapshot)
+        decision = result.decision
         if decision == Decision.QUARANTINE and memory_wipe is not None and context_provider is not None:
             current_ctx = context_provider.get_snapshot()
             memory_wipe.sanitize(current_ctx, (), WipeStrategy.FULL)
@@ -306,7 +307,8 @@ def _make_gated_invoker(
             descriptor=descriptor,
         )
         snapshot = context_provider.get_snapshot() if context_provider else None
-        decision = await gateway.decide(inv, snapshot=snapshot)
+        result = await gateway.decide(inv, snapshot=snapshot)
+        decision = result.decision
         if decision == Decision.QUARANTINE and memory_wipe is not None and context_provider is not None:
             current_ctx = context_provider.get_snapshot()
             memory_wipe.sanitize(current_ctx, (), WipeStrategy.FULL)

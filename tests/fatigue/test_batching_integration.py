@@ -113,7 +113,7 @@ def _run_concurrent(gw: Gateway, invs: list[Invocation]) -> list[Decision]:
     results: list[Decision] = [Decision.DENY] * len(invs)
 
     def call(i: int) -> None:
-        results[i] = gw.decide(invs[i])
+        results[i] = gw.decide(invs[i]).decision
 
     threads = [threading.Thread(target=call, args=(i,)) for i in range(len(invs))]
     for t in threads:
@@ -189,7 +189,7 @@ def test_single_call_still_works_with_batching() -> None:
         responder=responder,
         fatigue=fatigue,
     )
-    result = gw.decide(_inv(args={"to": "a@x.com"}))
+    result = gw.decide(_inv(args={"to": "a@x.com"})).decision
     assert result == Decision.ALLOW
     assert responder.calls == 1
 

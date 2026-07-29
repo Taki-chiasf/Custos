@@ -17,6 +17,7 @@ from custos.responders.base import Responder, ResponderAsync
 from custos.schema import (
     AssistantOutput,
     AuditEvent,
+    DecideResult,
     Decision,
     Invocation,
     PolicyOutcome,
@@ -54,5 +55,6 @@ __all__ = [
     "FatigueDecision",
     "InMemoryFatigueLayer",
     "MultiApproverResponder",
+    "DecideResult",
     "__version__",
 ]
