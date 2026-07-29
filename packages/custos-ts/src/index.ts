@@ -16,6 +16,7 @@ export * from "./fatigue/index.ts";
 export * from "./assistants/index.ts";
 export * from "./responders/index.ts";
 export * from "./audit/index.ts";
+export * from "./inspectors/index.ts";
 export * from "./gateway.ts";
 
 // The SidecarTransport + sidecarAssistant factory live under

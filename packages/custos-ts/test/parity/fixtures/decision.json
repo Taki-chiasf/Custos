@@ -30,6 +30,11 @@
     "is_allow": false
   },
   {
+    "decision": "quarantine",
+    "expected_value": "quarantine",
+    "is_allow": false
+  },
+  {
     "janus_verdict": "approve_once",
     "custos": "allow_once"
   },

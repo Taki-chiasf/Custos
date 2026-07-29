@@ -12,6 +12,7 @@ export const DECISION_VALUES = [
   "deny",
   "prompt",
   "defer",
+  "quarantine",
 ] as const;
 
 export type Decision = (typeof DECISION_VALUES)[number];
@@ -19,9 +20,9 @@ export type Decision = (typeof DECISION_VALUES)[number];
 export const isAllow = (d: Decision): boolean =>
   d === "allow" || d === "allow_once" || d === "allow_and_persist";
 
-// Intermediate policy engine outcome . ASSIST is the only one that
-// advances to step 3 (the named assistant).
-export const POLICY_OUTCOME_VALUES = ["allow", "deny", "prompt", "assist"] as const;
+// Intermediate policy engine outcome . ASSIST and INSPECT advance to
+// the assistant/inspector step respectively.
+export const POLICY_OUTCOME_VALUES = ["allow", "deny", "prompt", "assist", "inspect"] as const;
 export type PolicyOutcome = (typeof POLICY_OUTCOME_VALUES)[number];
 
 // Janus → Custos verdict mapping (mirrors

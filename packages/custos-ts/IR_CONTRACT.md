@@ -29,7 +29,7 @@ MUST NOT be relied on by a cross-language caller.
 
 ## 1. The `Decision` enum
 
-Six members, exact string values. Member order is the canonical
+Seven members, exact string values. Member order is the canonical
 ordering; `is_allow` is the only derived property to expose.
 
 | Member | String value | Semantics  |
@@ -40,6 +40,7 @@ ordering; `is_allow` is the only derived property to expose.
 | `DENY` | `"deny"` | Final deny; an assistant can never relax this (floor). |
 | `PROMPT` | `"prompt"` | Hand to the responder for user input. |
 | `DEFER` | `"defer"` | Defer the call (fatigue / ask-me-later). |
+| `QUARANTINE` | `"quarantine"` | Block call + trigger SDK context sanitisation (A12). |
 
 ```ts
 type Decision =
@@ -48,7 +49,8 @@ type Decision =
   | "allow_and_persist"
   | "deny"
   | "prompt"
-  | "defer";
+  | "defer"
+  | "quarantine";
 const isAllow = (d: Decision): boolean =>
   d === "allow" || d === "allow_once" || d === "allow_and_persist";
 ```
@@ -67,7 +69,7 @@ label and MUST NOT appear in the verdict mapping.
 
 ## 2. `PolicyOutcome` (intermediate, step 2 of the pipeline)
 
-The deterministic policy engine returns one of four values; the rest of
+The deterministic policy engine returns one of five values; the rest of
 the pipeline maps them to a final `Decision`.
 
 | Member | String value | Pipeline step |
@@ -76,6 +78,7 @@ the pipeline maps them to a final `Decision`.
 | `DENY` | `"deny"` | Step 2 — short-circuits to `Decision.DENY`. Floor; NOT relaxable by an assistant . |
 | `PROMPT` | `"prompt"` | Step 2 — skips assistant, hands to responder. |
 | `ASSIST` | `"assist"` | Step 2 — invoke the named assistant . |
+| `INSPECT` | `"inspect"` | Step 2/3a — invoke the named context inspector (A12). |
 
 ## 3. ABAC operator set (dual-engine lock)
 
@@ -324,7 +327,8 @@ client-side before any cross-boundary send — see .)
                "delegation_chain": [], "session_ttl": null,
                "extra": {} },
   "approver": null,
-  "quorum_state": null
+  "quorum_state": null,
+  "inspector": null
 }
 ```
 
@@ -337,6 +341,9 @@ client-side before any cross-boundary send — see .)
 - `quorum_state`: `"met"` / `"failed"` / `null`. Only set on
   prompt-resolved decisions under a `quorum` rule; `null` everywhere
   else.   .
+- `inspector`: context inspector name (A12). Set on `inspect:<name>`
+  policy paths; `null` otherwise. Forward field — the v1.1 TS port
+  emits it; the Python impl added it at .
 - `schema_version`: **forward field** — the v1.0rc1 Python impl does
   NOT emit it;  (audit tamper-evidence) introduces it
   with the value `"1.0"`. The TS port ships `schema_version: "1.0"`

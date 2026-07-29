@@ -16,8 +16,10 @@
 import { createHash, randomBytes } from "node:crypto";
 
 import { Policy, Rule, type PolicyRuleSpec, type PolicyAction } from "./policy/engine.ts";
-import { MatchSpec, type MatchSpec as MatchSpecType } from "./policy/match.ts";
+import { MatchSpec } from "./policy/match.ts";
 import type { Assistant, AssistantAsync } from "./assistants/base.ts";
+import { AssistantRegistry } from "./assistants/registry.ts";
+import type { ContextInspector } from "./inspectors/base.ts";
 import type { Responder } from "./responders/base.ts";
 import type { AuditSink } from "./audit/sink.ts";
 import type { FatigueLayer } from "./fatigue/base.ts";
@@ -29,6 +31,7 @@ import {
   type PromptResponse,
   type AuditEvent,
   type ToolDescriptor,
+  type ContextSnapshot,
 } from "./schema.ts";
 import type { Decision } from "./decision.ts";
 import { validateToolDescriptor } from "./schema.ts";
@@ -38,17 +41,21 @@ import { NullAuditSink } from "./audit/sink.ts";
 
 export interface GatewayOptions {
   policy: Policy;
-  assistant: Assistant | AssistantAsync | null;
-  responder: Responder | null;
+  assistant?: Assistant | AssistantAsync | null;
+  assistants?: (Assistant | AssistantAsync)[];
+  responder?: Responder | null;
   auditSink?: AuditSink;
   fatigue?: FatigueLayer;
   defaultContext?: SubjectContext;
+  inspector?: ContextInspector | null;
+  localOnly?: boolean;
 }
 
 export interface DecideOptions {
   context?: SubjectContext;
   descriptor?: ToolDescriptor | null;
   requestId?: string;
+  snapshot?: ContextSnapshot | null;
 }
 
 export interface DecideResult {
@@ -57,20 +64,30 @@ export interface DecideResult {
 }
 
 export class Gateway {
-  policy: Policy; // mutable for `insertRuleBefore` (assistant persisted rules) + `reloadPolicy`
-  readonly assistant: Assistant | AssistantAsync | null;
+  policy: Policy;
+  readonly assistantRegistry: AssistantRegistry;
   readonly responder: Responder | null;
   readonly auditSink: AuditSink;
   readonly fatigue: FatigueLayer;
+  readonly inspector: ContextInspector | null;
   private defaultContext: SubjectContext | null;
 
   constructor(opts: GatewayOptions) {
     this.policy = opts.policy;
-    this.assistant = opts.assistant;
-    this.responder = opts.responder;
+    this.responder = opts.responder ?? null;
     this.auditSink = opts.auditSink ?? new NullAuditSink();
     this.fatigue = opts.fatigue ?? new InMemoryFatigueLayer();
     this.defaultContext = opts.defaultContext ?? null;
+    this.inspector = opts.inspector ?? null;
+
+    const registry = new AssistantRegistry(undefined, opts.localOnly ?? false);
+    if (opts.assistants) {
+      for (const a of opts.assistants) registry.register(a);
+    }
+    if (opts.assistant) {
+      registry.register(opts.assistant);
+    }
+    this.assistantRegistry = registry;
   }
 
   async decide(
@@ -92,11 +109,13 @@ export class Gateway {
       descriptor: options.descriptor ?? null,
       request_id: options.requestId ?? randomNonce(),
     };
+    const snapshot = options.snapshot ?? null;
 
     const tStart = Date.now();
     let finalDecision: Decision = "deny";
     let policyMatch: string | null = null;
     let assistantName: string | null = null;
+    let inspectorName: string | null = null;
     let riskScore = 0;
     let reasoning = "";
     let responderName: string | null = null;
@@ -109,20 +128,21 @@ export class Gateway {
       const evalResult = this.policy.evaluate(inv);
       matchedRule = evalResult.matched;
       if (matchedRule) policyMatch = matchedRule.id;
+      let effectiveOutcome = evalResult.outcome;
 
       //  floor/ceiling: policy DENY/ALLOW short-circuit BEFORE the
       // fatigue cache so a freshly-tightened policy is never shadowed by a
       // stale cached `allow` (; arch #1 regression, council
       // 2026-07-22). Mirrors the Python gateway's policy-first ordering.
-      if (evalResult.outcome === "deny") {
+      if (effectiveOutcome === "deny") {
         finalDecision = "deny";
         reasoning = "policy deny (floor)";
-        return this.finalize(inv, finalDecision, tStart, policyMatch, assistantName, riskScore, reasoning, responderName, approver, quorumState);
+        return this.finalize(inv, finalDecision, tStart, policyMatch, assistantName, riskScore, reasoning, responderName, approver, quorumState, inspectorName);
       }
-      if (evalResult.outcome === "allow") {
+      if (effectiveOutcome === "allow") {
         finalDecision = "allow";
         reasoning = "policy allow";
-        return this.finalize(inv, finalDecision, tStart, policyMatch, assistantName, riskScore, reasoning, responderName, approver, quorumState);
+        return this.finalize(inv, finalDecision, tStart, policyMatch, assistantName, riskScore, reasoning, responderName, approver, quorumState, inspectorName);
       }
 
       // Seam A: fatigue dedup lookup. Per  only user-resolved
@@ -132,34 +152,75 @@ export class Gateway {
       if (fatigueHit.decision !== "defer" && fatigueHit.cacheable) {
         finalDecision = fatigueHit.decision;
         reasoning = fatigueHit.reasoning;
-        return this.finalize(inv, finalDecision, tStart, policyMatch, assistantName, riskScore, reasoning, responderName, approver, quorumState);
+        return this.finalize(inv, finalDecision, tStart, policyMatch, assistantName, riskScore, reasoning, responderName, approver, quorumState, inspectorName);
       }
 
-      switch (evalResult.outcome) {
+      // Step 3a: INSPECT — context inspector (A12).
+      if (evalResult.outcome === "inspect") {
+        const nameSuffix = matchedRule?.inspectorName ?? null;
+        //  named-inspector routing: the configured inspector must match
+        // the named action suffix. Unresolved -> safe deny.
+        if (!this.inspector) {
+          finalDecision = "deny";
+          reasoning = nameSuffix
+            ? `inspect:${nameSuffix} routed but no inspector configured (safe deny)`
+            : "inspect action but no inspector configured (safe deny)";
+        } else if (nameSuffix && this.inspector.name !== nameSuffix) {
+          finalDecision = "deny";
+          reasoning = `inspect:${nameSuffix} routed but configured inspector is ${this.inspector.name} (safe deny)`;
+        } else if (!snapshot) {
+          finalDecision = "deny";
+          reasoning = "inspect requested but no ContextSnapshot provided";
+        } else {
+          inspectorName = this.inspector.name;
+          try {
+            const inspResult = await this.inspector.inspect(inv, ctx, snapshot);
+            riskScore = inspResult.confidence;
+            reasoning = inspResult.reasoning || "inspector: no reasoning";
+            if (inspResult.verdict === "safe") {
+              effectiveOutcome = "assist";
+            } else if (inspResult.verdict === "suspicious") {
+              finalDecision = "prompt";
+            } else {
+              finalDecision = "quarantine";
+            }
+          } catch (err) {
+            finalDecision = "deny";
+            reasoning = `inspector error: ${(err as Error).message}`;
+          }
+        }
+      }
+
+      switch (effectiveOutcome) {
         case "prompt":
           finalDecision = "prompt";
           reasoning = "policy prompt";
           break;
+        case "inspect":
+          // INSPECT already handled above; if verdict was SAFE,
+          // effectiveOutcome was changed to "assist".
+          break;
         case "assist": {
-          if (!this.assistant) {
+          //  named-assistant routing via registry.
+          const nameSuffix = matchedRule?.assistantName ?? null;
+          const resolved = nameSuffix
+            ? this.assistantRegistry.get(nameSuffix)
+            : this.assistantRegistry.default;
+
+          if (!resolved) {
             finalDecision = "deny";
-            reasoning = "assist action but no assistant configured (safe deny)";
+            reasoning = nameSuffix
+              ? `assist:${nameSuffix} routed but no matching assistant (safe deny)`
+              : "assist action but no assistant configured (safe deny)";
             break;
           }
-          const configuredName = this.assistant.name;
-          //  named-assistant routing: an unresolved name fails closed.
-          if (matchedRule && matchedRule.assistantName !== null && matchedRule.assistantName !== configuredName) {
-            finalDecision = "deny";
-            reasoning = `assist:${matchedRule.assistantName} routed but configured assistant is ${configuredName} (safe deny)`;
-            break;
-          }
-          assistantName = configuredName;
+
+          assistantName = resolved.name;
           let assistantOut: AssistantOutput;
           try {
-            const out = await this.assistant.decide(inv, ctx);
+            const out = await resolved.decide(inv, ctx);
             assistantOut = out;
           } catch (err) {
-            //  responder/assistant exception safety: safe `deny`.
             finalDecision = "deny";
             reasoning = `assistant error: ${(err as Error).message}`;
             break;
@@ -175,7 +236,11 @@ export class Gateway {
             assistantOut.decision === "allow_once" ||
             assistantOut.decision === "allow_and_persist"
           ) {
-            finalDecision = assistantOut.decision;
+            if (assistantOut.decision === "allow_and_persist") {
+              finalDecision = "allow_once";
+            } else {
+              finalDecision = assistantOut.decision;
+            }
             // H3 narrowness: an assistant `allow_and_persist` inserts a
             // rule BEFORE the matched rule. A broad poisoned rule is
             // rejected at insert time.
@@ -185,8 +250,8 @@ export class Gateway {
               matchedRule
             ) {
               try {
-                const newRule = buildPersistedRule(assistantOut.persist_rule);
-                if (isNarrower(newRule.match, matchedRule.match)) {
+                const newRule = buildPersistedRule(assistantOut.persist_rule, this.policy, matchedRule);
+                if (newRule) {
                   const matchedIndex = this.policy.rules.indexOf(matchedRule);
                   if (matchedIndex >= 0) {
                     this.policy = this.policy.insertRuleBefore(matchedIndex, newRule);
@@ -235,7 +300,7 @@ export class Gateway {
           if (resp !== null) {
             if (resp.choice === "defer") {
               finalDecision = "defer";
-              quorumState = "failed"; // matches Python _infer_quorum_state for unresolved prompts
+              quorumState = "failed";
             } else if (resp.choice === "deny") {
               finalDecision = "deny";
               if (matchedRule?.quorum) quorumState = "failed";
@@ -243,8 +308,6 @@ export class Gateway {
               finalDecision = resp.choice;
               if (matchedRule?.quorum) quorumState = "met";
             }
-            // : only user-resolved decisions (non-DEFER, non-PROMPT)
-            // are cacheable.
             if (finalDecision !== "defer" && finalDecision !== "prompt") {
               try {
                 this.fatigue.afterPrompt(inv, finalDecision, resp.ttl);
@@ -256,12 +319,11 @@ export class Gateway {
         }
       }
     } catch (err) {
-      // Uncaught pipeline exception -> safe `deny`, audit ALWAYS runs.
       finalDecision = "deny";
       reasoning = `pipeline error: ${(err as Error).message}`;
     }
 
-    return this.finalize(inv, finalDecision, tStart, policyMatch, assistantName, riskScore, reasoning, responderName, approver, quorumState);
+    return this.finalize(inv, finalDecision, tStart, policyMatch, assistantName, riskScore, reasoning, responderName, approver, quorumState, inspectorName);
   }
 
   private finalize(
@@ -275,6 +337,7 @@ export class Gateway {
     responderName: string | null,
     approver: string | null,
     quorumState: "met" | "failed" | null,
+    inspectorName: string | null,
   ): DecideResult {
     const latencyMs = Date.now() - tStart;
     const event: AuditEvent = {
@@ -291,19 +354,16 @@ export class Gateway {
       approver,
       quorum_state: quorumState,
       schema_version: "1.0",
+      inspector: inspectorName,
     };
     try {
       this.auditSink.emit(event);
     } catch {
-      process.stderr.write(`[custos] audit sink failure\n`);
+      process.stderr.write("[custos] audit sink failure\n");
     }
     return { decision, audit: event };
   }
 
-  // SDK helper: wrap a function so each call routes through `decide`.
-  // Mirrors `custos.sdk.wrap_callables` (Python). The wrapped function
-  // becomes async (the gateway is async); a `deny`/`defer` raises
-  // `PermissionDenied`.
   wrap<T extends (...args: any[]) => any>(
     fn: T,
     opts: { tool: string; descriptor?: ToolDescriptor | null }
@@ -321,7 +381,7 @@ export class Gateway {
         context: ctx,
         descriptor: opts.descriptor ?? null,
       });
-      if (decision === "deny" || decision === "defer") {
+      if (decision === "deny" || decision === "defer" || decision === "quarantine") {
         throw new PermissionDenied(`custos: ${decision} on ${opts.tool}`);
       }
       return await fn.apply(this, args);
@@ -340,60 +400,85 @@ export class Gateway {
   }
 }
 
-// H3 narrowness check: is `a` structurally narrower than `b`? A rule is
-// narrower if every input matching `a` ALSO matches `b` AND `a` adds at
-// least one restricting criterion. Broad globs / `any:true` are NOT
-// narrower than anything.
-function isNarrower(a: MatchSpecType, b: MatchSpecType): boolean {
-  if (a.any) return false;
-  if (b.any) return !a.any;
-  const aCount = countCriteria(a);
-  const bCount = countCriteria(b);
-  if (aCount <= bCount) return false;
-  if (a.tool_glob && b.tool_glob) {
-    if (a.tool_glob === b.tool_glob) return aCount > bCount;
-    if (!isGlobSubset(a.tool_glob, b.tool_glob)) return false;
+// H3 narrowness check — full validation matching Python
+// `_persist_assistant_rule_impl`. Rejects: `any:true`, broad `*` tool
+// globs, bare `allow`/`allow_and_audit` actions without narrowing
+// criteria, `matches` (regex) arg predicates, and rules that would
+// shadow a later `deny*` rule.
+function isNarrowerAndSafe(
+  persistMatch: Record<string, unknown>,
+  persistAction: string,
+  policy: Policy,
+  matchedIndex: number,
+): boolean {
+  // Reject any:true.
+  if (persistMatch.any === true || persistMatch.any === "true") return false;
+
+  // Reject broad tool glob "*".
+  const tool = persistMatch.tool;
+  if (typeof tool === "string" && tool === "*") return false;
+
+  // Reject bare allow/allow_and_audit without narrowing criteria.
+  if (persistAction === "allow" || persistAction === "allow_and_audit") {
+    const hasNarrowing = typeof tool === "string" && tool !== "*" && tool !== "";
+    const hasArgs = persistMatch.args && typeof persistMatch.args === "object";
+    const hasRiskTier = persistMatch.risk_tier !== undefined;
+    const hasSideEffects = persistMatch.side_effects !== undefined;
+    const hasGoalId = persistMatch.goal_id !== undefined;
+    const hasDepth = persistMatch.delegation_depth !== undefined;
+    if (!hasNarrowing && !hasArgs && !hasRiskTier && !hasSideEffects && !hasGoalId && !hasDepth) {
+      return false;
+    }
   }
+
+  // Reject `matches` (regex) operators in arg predicates.
+  const args = persistMatch.args;
+  if (args && typeof args === "object") {
+    for (const argVal of Object.values(args as Record<string, unknown>)) {
+      if (argVal && typeof argVal === "object" && "matches" in (argVal as Record<string, unknown>)) {
+        return false;
+      }
+    }
+  }
+
+  // Reject rules that would shadow a later deny* rule.
+  const rules = policy.rules as readonly Rule[];
+  if (matchedIndex >= 0 && matchedIndex < rules.length - 1) {
+    for (let i = matchedIndex + 1; i < rules.length; i++) {
+      const laterRule = rules[i];
+      if (laterRule.action.startsWith("deny")) {
+        const laterTool = laterRule.match.tool_glob;
+        if (laterTool === null || laterTool === "*") return false;
+        if (typeof tool === "string") {
+          const { fnmatchCase } = require("./fnmatch.ts") as typeof import("./fnmatch.ts");
+          if (fnmatchCase(tool, laterTool) || fnmatchCase(laterTool, tool)) return false;
+        }
+      }
+    }
+  }
+
   return true;
 }
 
-function countCriteria(m: MatchSpecType): number {
-  let n = 0;
-  if (m.tool_glob !== null) n++;
-  if (m.risk_tier_min !== null || m.risk_tier_max !== null) n++;
-  if (m.side_effects.size > 0) n++;
-  if (m.args.size > 0) n += m.args.size;
-  if (m.goal_id !== null) n++;
-  if (m.delegation_depth !== null) n++;
-  return n;
-}
-
-function isGlobSubset(a: string, b: string): boolean {
-  if (a === b) return false;
-  const aIsLiteral = !/[*?\[]/.test(a);
-  const bIsLiteral = !/[*?\[]/.test(b);
-  if (bIsLiteral) return a === b;
-  if (aIsLiteral) return a.startsWith(b.replace(/\*+$/, ""));
-  return false;
-}
-
-function buildPersistedRule(rule: { match: Record<string, unknown>; action: string }): Rule {
-  // The persisted rule comes from an assistant (UNTRUSTED). The gateway
-  // validates narrowness BEFORE inserting; `buildPersistedRule` itself
-  // only constructs the object. The action MUST be a valid
-  // `PolicyAction` (validated against the allowlist); an unknown action
-  // throws and the H3 outer catch records it in the reasoning.
+function buildPersistedRule(
+  rule: { match: Record<string, unknown>; action: string },
+  policy: Policy,
+  matchedRule: Rule,
+): Rule | null {
   const match = MatchSpec.fromMapping(rule.match);
   const allowed: PolicyAction[] = [
-    "allow", "deny", "prompt", "assist", "allow_and_audit", "deny_and_alert",
+    "allow", "deny", "prompt", "assist", "inspect", "allow_and_audit", "deny_and_alert",
   ];
   if (!allowed.includes(rule.action as PolicyAction)) {
     throw new Error(`persist_rule.action must be one of ${allowed.join(", ")}, got ${JSON.stringify(rule.action)}`);
   }
+  const matchedIndex = (policy.rules as readonly Rule[]).indexOf(matchedRule);
+  if (!isNarrowerAndSafe(rule.match, rule.action, policy, matchedIndex)) return null;
   const spec: PolicyRuleSpec = {
     match,
     action: rule.action as PolicyAction,
     assistant_name: null,
+    inspector_name: null,
     batching: null,
     quorum: null,
     approver_roles: [],
@@ -402,10 +487,6 @@ function buildPersistedRule(rule: { match: Record<string, unknown>; action: stri
   return new Rule(spec);
 }
 
-// Redact args — . Mirrors `custos.schema._redact_args` (recursive).
-// Flat `secret:true` / `format:password` redaction + the
-// `SideEffect.PII`-without-per-field-spec "redact all" fallback. Deep
-// recursion through `properties`/`items` for theparity fixture subset.
 export function redactArgs(
   args: Record<string, unknown>,
   descriptor: ToolDescriptor | null
@@ -428,6 +509,8 @@ function redactWalk(
   maxDepth: number
 ): void {
   if (depth >= maxDepth) return;
+
+  // Direct properties.
   const props = schema.properties;
   if (props && typeof props === "object" && !Array.isArray(props)) {
     for (const [name, fieldSchema] of Object.entries(props as Record<string, unknown>)) {
@@ -446,6 +529,47 @@ function redactWalk(
               redactWalk(el as Record<string, unknown>, itemsSchema as Record<string, unknown>, depth + 1, maxDepth);
             }
           }
+        }
+      }
+    }
+  }
+
+  // patternProperties — wildcard property schemas.
+  const patternProps = schema.patternProperties;
+  if (patternProps && typeof patternProps === "object" && !Array.isArray(patternProps)) {
+    for (const [key, val] of Object.entries(args)) {
+      for (const [pat, patSchema] of Object.entries(patternProps as Record<string, unknown>)) {
+        if (!patSchema || typeof patSchema !== "object") continue;
+        try {
+          if (new RegExp(pat).test(key) && typeof val === "object" && val !== null && !Array.isArray(val)) {
+            redactWalk(val as Record<string, unknown>, patSchema as Record<string, unknown>, depth + 1, maxDepth);
+          }
+        } catch {
+          // invalid regex — skip
+        }
+      }
+    }
+  }
+
+  // additionalProperties — catch-all property schema.
+  const addl = schema.additionalProperties;
+  if (addl && typeof addl === "object" && !Array.isArray(addl)) {
+    const processed = new Set(props ? Object.keys(props as Record<string, unknown>) : []);
+    for (const [key, val] of Object.entries(args)) {
+      if (processed.has(key)) continue;
+      if (typeof val === "object" && val !== null && !Array.isArray(val)) {
+        redactWalk(val as Record<string, unknown>, addl as Record<string, unknown>, depth + 1, maxDepth);
+      }
+    }
+  }
+
+  // Composite schemas: allOf / anyOf / oneOf.
+  for (const compKey of ["allOf", "anyOf", "oneOf"] as const) {
+    const comp = schema[compKey];
+    if (Array.isArray(comp)) {
+      for (const subSchema of comp) {
+        if (subSchema && typeof subSchema === "object" && !Array.isArray(subSchema)) {
+          redactWalk(args, subSchema as Record<string, unknown>, depth + 1, maxDepth);
         }
       }
     }
@@ -471,19 +595,8 @@ function extractParamNames(fn: (...args: any[]) => any): string[] {
   return m[1].split(",").map((p) => p.trim().replace(/\.\.\./g, "").replace(/=\s*[\s\S]*$/, "").trim()).filter(Boolean);
 }
 
-// `createHash` is imported for parity with the (unused here, but used by
-// the sidecar) crypto surface; kept to keep the module's import shapes
-// consistent. Callers of `sidecarAssistant`'s HMAC verification use it.
-// `createHash` is imported for parity with the (unused here, but used by
-// the sidecar) crypto surface; kept to keep the module's import shapes
-// consistent. Callers of `sidecarAssistant`'s HMAC verification use it.
 export { createHash };
 
-// Synthesize a per-call request_id / nonce when the caller didn't supply
-// one. The sidecar replay-guard (replay at the boundary) requires a
-// non-empty `request_id`; the in-process pipeline accepts `null` so we
-// generate a short random hex string here. Mirrors the Python
-// `uuid.uuid4.hex` fallback in `custos.gateway.Gateway.decide`.
 function randomNonce(): string {
   return randomBytes(16).toString("hex");
 }

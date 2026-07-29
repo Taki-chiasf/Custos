@@ -56,6 +56,23 @@ export class RulePolicyAssistant implements Assistant {
           fatigue_hint: false,
           persist_rule: null,
         };
+      case "inspect":
+        // Inner `inspect:<name>` reified as prompt (same as ASSIST).
+        return {
+          decision: "prompt",
+          risk: 0.5,
+          reasoning: "A7 rule-policy: inner INSPECT reified as prompt",
+          fatigue_hint: false,
+          persist_rule: null,
+        };
+      default:
+        return {
+          decision: "deny",
+          risk: 1.0,
+          reasoning: "A7 rule-policy: unknown outcome",
+          fatigue_hint: false,
+          persist_rule: null,
+        };
     }
   }
 }

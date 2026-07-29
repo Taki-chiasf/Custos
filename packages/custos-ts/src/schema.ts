@@ -101,6 +101,8 @@ export interface AuditEvent {
   // Forward field : absent in v1.0rc1 Python impl,
   // "1.0" from day one on the TS side. Optional until .
   schema_version?: string;
+  // A12 context inspector name  — emitted on `inspect:<name>` paths.
+  inspector?: string | null;
 }
 
 // Assistant output  — produced by an assistant, consumed
@@ -133,4 +135,37 @@ export interface PromptResponse {
   signature: Uint8Array | null; // HMAC bytes for webhook responses
   nonce: string | null;
   approver: string | null;
+}
+
+// A12 context inspector types  — mirrors `custos.schema` (Python).
+
+export type InspectionVerdict = "safe" | "suspicious" | "injection";
+
+export interface InputSource {
+  source_id: string;
+  source_type: string;
+  content: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ContextSnapshot {
+  ts_unix_ms: number;
+  messages?: Record<string, unknown>[];
+  sources?: InputSource[];
+  system_prompt?: string | null;
+}
+
+export interface InjectionFinding {
+  source: InputSource;
+  confidence: number; // 0.0..1.0
+  affected_indices?: number[];
+  method?: string;
+}
+
+export interface InspectionResult {
+  verdict: InspectionVerdict;
+  findings?: InjectionFinding[];
+  confidence: number; // 0.0..1.0
+  masked_snapshot?: ContextSnapshot | null;
+  reasoning: string;
 }

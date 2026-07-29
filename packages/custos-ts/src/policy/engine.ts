@@ -26,6 +26,7 @@ export type PolicyAction =
   | "deny"
   | "prompt"
   | "assist"
+  | "inspect"
   | "allow_and_audit"
   | "deny_and_alert";
 
@@ -43,6 +44,7 @@ export interface PolicyRuleSpec {
   match: MatchSpec;
   action: PolicyAction;
   assistant_name: string | null; // present when action === "assist"
+  inspector_name: string | null; // present when action === "inspect"
   batching: { window_ms: number; max_per_minute: number } | null;
   quorum: number | null;
   approver_roles: string[];
@@ -53,6 +55,7 @@ export class Rule {
   readonly match: MatchSpec;
   readonly action: PolicyAction;
   readonly assistantName: string | null;
+  readonly inspectorName: string | null;
   readonly batching: { window_ms: number; max_per_minute: number } | null;
   readonly quorum: number | null;
   readonly approverRoles: string[];
@@ -62,6 +65,7 @@ export class Rule {
     this.match = spec.match;
     this.action = spec.action;
     this.assistantName = spec.assistant_name;
+    this.inspectorName = spec.inspector_name;
     this.batching = spec.batching;
     this.quorum = spec.quorum;
     this.approverRoles = spec.approver_roles;
@@ -75,7 +79,7 @@ export class Rule {
 
 // Intermediate policy outcome — see decision.ts PolicyOutcome.
 export interface PolicyEval {
-  outcome: "allow" | "deny" | "prompt" | "assist";
+  outcome: "allow" | "deny" | "prompt" | "assist" | "inspect";
   matched: Rule | null;
 }
 
@@ -152,6 +156,7 @@ function parseRule(spec: RuleSpec): Rule {
 
   let action: PolicyAction;
   let assistantName: string | null = null;
+  let inspectorName: string | null = null;
   if (typeof spec.action !== "string") {
     throw new PolicyValidationError("rule.action must be a string");
   }
@@ -161,6 +166,18 @@ function parseRule(spec: RuleSpec): Rule {
     if (!assistantName) {
       throw new PolicyValidationError("assist action requires a name");
     }
+  } else if (spec.action.startsWith("inspect:")) {
+    action = "inspect";
+    inspectorName = spec.action.slice("inspect:".length);
+    if (!inspectorName) {
+      throw new PolicyValidationError("inspect action requires a name");
+    }
+  } else if (spec.action === "assist") {
+    // Bare ``assist`` (no ``:<name>`` suffix) routes to the default assistant.
+    action = "assist";
+  } else if (spec.action === "inspect") {
+    // Bare ``inspect`` routes to the default inspector.
+    action = "inspect";
   } else if (
     ["allow", "deny", "prompt", "allow_and_audit", "deny_and_alert"].includes(spec.action)
   ) {
@@ -211,14 +228,14 @@ function parseRule(spec: RuleSpec): Rule {
   }
 
   return new Rule({
-    match, action, assistant_name: assistantName,
+    match, action, assistant_name: assistantName, inspector_name: inspectorName,
     batching, quorum: responderHints.quorum,
     approver_roles: responderHints.approver_roles,
     approver_allowlist: responderHints.approver_allowlist,
   });
 }
 
-function actionToOutcome(action: PolicyAction): "allow" | "deny" | "prompt" | "assist" {
+function actionToOutcome(action: PolicyAction): "allow" | "deny" | "prompt" | "assist" | "inspect" {
   switch (action) {
     case "allow":
     case "allow_and_audit":
@@ -230,5 +247,7 @@ function actionToOutcome(action: PolicyAction): "allow" | "deny" | "prompt" | "a
       return "prompt";
     case "assist":
       return "assist";
+    case "inspect":
+      return "inspect";
   }
 }

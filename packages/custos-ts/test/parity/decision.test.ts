@@ -35,9 +35,9 @@ describe("parity / decision", () => {
     }
   }
 
-  it("six members exact string values", () => {
+  it("seven members exact string values", () => {
     expect([...DECISION_VALUES].sort()).toEqual(
-      ["allow", "allow_and_persist", "allow_once", "defer", "deny", "prompt"].sort()
+      ["allow", "allow_and_persist", "allow_once", "defer", "deny", "prompt", "quarantine"].sort()
     );
   });
 

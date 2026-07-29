@@ -13,11 +13,12 @@ import {
   DelegationAwareAssistant,
   DEFAULT_DEPTH_THRESHOLDS,
 } from "../src/assistants/index.ts";
+import type { ContextInspector, Assistant } from "../src/index.ts";
+import { PermissionDenied } from "../src/exceptions.ts";
+import { NullAuditSink, FileAuditSink } from "../src/audit/sink.ts";
 import { NoopResponder } from "../src/responders/index.ts";
-import { FileAuditSink, NullAuditSink } from "../src/audit/sink.ts";
 import { InMemoryFatigueLayer } from "../src/fatigue/dedup.ts";
 import type { AuditEvent, SubjectContext, ToolDescriptor } from "../src/schema.ts";
-import { PermissionDenied } from "../src/exceptions.ts";
 
 function ctx(uid = "alice"): SubjectContext {
   return {
@@ -215,7 +216,7 @@ describe("Gateway — assistant escalation", () => {
     });
     const { decision, audit } = await gw.decide("fs.write_log", { msg: "x" });
     expect(decision).toBe("deny");
-    expect(audit.reasoning).toContain("routed but configured assistant is auto-approve");
+    expect(audit.reasoning).toContain("no matching assistant");
   });
 });
 
@@ -665,5 +666,289 @@ describe("sidecarAssistant", () => {
     });
     const { decision } = await gw.decide("fs.write_log", {});
     expect(decision).toBe("deny");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Gateway — A12 INSPECT pipeline
+// ---------------------------------------------------------------------------
+
+describe("Gateway — A12 INSPECT pipeline", () => {
+  const ctx = (): SubjectContext => ({
+    user_id: "u1",
+    goal_id: null,
+    task_id: null,
+    delegation_chain: [],
+    session_ttl: null,
+    extra: {},
+  });
+
+  it("inspect: SAFE verdict routes to ASSIST", async () => {
+    const insp: ContextInspector = {
+      name: "test-inspector",
+      exfiltratesArgs: false,
+      inspect() {
+        return {
+          verdict: "safe",
+          confidence: 0.2,
+          reasoning: "looks clean",
+        };
+      },
+    };
+    const assistant = new AutoApproveAssistant();
+    const gw = new Gateway({
+      policy: Policy.fromSpec({
+        rules: [{ match: { tool: "fs.*" }, action: "inspect:test-inspector" }],
+        default: "deny",
+      }),
+      assistant,
+      inspector: insp,
+      auditSink: new NullAuditSink(),
+      defaultContext: ctx(),
+    });
+    const { decision, audit } = await gw.decide("fs.read", {}, {
+      snapshot: { ts_unix_ms: 1, sources: [], messages: [] },
+    });
+    expect(decision).toBe("allow_once"); // SAFE -> ASSIST -> auto-approve
+    expect(audit.inspector).toBe("test-inspector");
+  });
+
+  it("inspect: SUSPICIOUS verdict routes to PROMPT", async () => {
+    const insp: ContextInspector = {
+      name: "test-inspector",
+      exfiltratesArgs: false,
+      inspect() {
+        return {
+          verdict: "suspicious",
+          confidence: 0.6,
+          reasoning: "something odd",
+        };
+      },
+    };
+    const gw = new Gateway({
+      policy: Policy.fromSpec({
+        rules: [{ match: { tool: "fs.*" }, action: "inspect:test-inspector" }],
+        default: "deny",
+      }),
+      inspector: insp,
+      auditSink: new NullAuditSink(),
+      defaultContext: ctx(),
+    });
+    const { decision, audit } = await gw.decide("fs.read", {}, {
+      snapshot: { ts_unix_ms: 1, sources: [], messages: [] },
+    });
+    expect(decision).toBe("deny"); // no responder -> safe deny
+    expect(audit.inspector).toBe("test-inspector");
+  });
+
+  it("inspect: INJECTION verdict returns quarantine", async () => {
+    const insp: ContextInspector = {
+      name: "test-inspector",
+      exfiltratesArgs: false,
+      inspect() {
+        return {
+          verdict: "injection",
+          confidence: 0.9,
+          reasoning: "injection detected",
+        };
+      },
+    };
+    const gw = new Gateway({
+      policy: Policy.fromSpec({
+        rules: [{ match: { tool: "fs.*" }, action: "inspect:test-inspector" }],
+        default: "deny",
+      }),
+      inspector: insp,
+      auditSink: new NullAuditSink(),
+      defaultContext: ctx(),
+    });
+    const { decision, audit } = await gw.decide("fs.read", {}, {
+      snapshot: { ts_unix_ms: 1, sources: [], messages: [] },
+    });
+    expect(decision).toBe("quarantine");
+    expect(audit.inspector).toBe("test-inspector");
+  });
+
+  it("inspect: without snapshot -> safe deny", async () => {
+    const insp: ContextInspector = {
+      name: "test-inspector",
+      exfiltratesArgs: false,
+      inspect() {
+        return { verdict: "safe", confidence: 0, reasoning: "ok" };
+      },
+    };
+    const gw = new Gateway({
+      policy: Policy.fromSpec({
+        rules: [{ match: { tool: "fs.*" }, action: "inspect:test-inspector" }],
+        default: "deny",
+      }),
+      inspector: insp,
+      auditSink: new NullAuditSink(),
+      defaultContext: ctx(),
+    });
+    const { decision } = await gw.decide("fs.read", {});
+    expect(decision).toBe("deny");
+  });
+
+  it("inspect: without inspector -> safe deny", async () => {
+    const gw = new Gateway({
+      policy: Policy.fromSpec({
+        rules: [{ match: { tool: "fs.*" }, action: "inspect:missing" }],
+        default: "deny",
+      }),
+      auditSink: new NullAuditSink(),
+      defaultContext: ctx(),
+    });
+    const { decision } = await gw.decide("fs.read", {});
+    expect(decision).toBe("deny");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Gateway — H3 narrowness validation
+// ---------------------------------------------------------------------------
+
+describe("Gateway — H3 narrowness validation", () => {
+  const ctx = (): SubjectContext => ({
+    user_id: "u1",
+    goal_id: null,
+    task_id: null,
+    delegation_chain: [],
+    session_ttl: null,
+    extra: {},
+  });
+
+  it("rejects any:true persist_rule", async () => {
+    const assistant: Assistant = {
+      name: "test",
+      exfiltratesArgs: false,
+      decide() {
+        return {
+          decision: "allow_and_persist",
+          risk: 0,
+          reasoning: "",
+          fatigue_hint: false,
+          persist_rule: { match: { any: true }, action: "allow" },
+        };
+      },
+    };
+    const gw = new Gateway({
+      policy: Policy.fromSpec({
+        rules: [{ match: { tool: "fs.*" }, action: "assist" }],
+        default: "deny",
+      }),
+      assistant,
+      auditSink: new NullAuditSink(),
+      defaultContext: ctx(),
+    });
+    const { decision, audit } = await gw.decide("fs.read", {});
+    expect(decision).toBe("allow_once"); // allow_and_persist -> allow_once
+    expect(audit.reasoning).toContain("rejected broad persisted rule (H3)");
+    // Rule was NOT inserted.
+    expect(gw.policy.rules.length).toBe(1);
+  });
+
+  it("rejects broad * tool glob persist_rule", async () => {
+    const assistant: Assistant = {
+      name: "test",
+      exfiltratesArgs: false,
+      decide() {
+        return {
+          decision: "allow_and_persist",
+          risk: 0,
+          reasoning: "",
+          fatigue_hint: false,
+          persist_rule: { match: { tool: "*", any: true }, action: "allow" },
+        };
+      },
+    };
+    const gw = new Gateway({
+      policy: Policy.fromSpec({
+        rules: [{ match: { tool: "fs.*" }, action: "assist" }],
+        default: "deny",
+      }),
+      assistant,
+      auditSink: new NullAuditSink(),
+      defaultContext: ctx(),
+    });
+    const { decision, audit } = await gw.decide("fs.read", {});
+    expect(decision).toBe("allow_once");
+    expect(audit.reasoning).toContain("rejected broad persisted rule (H3)");
+    expect(gw.policy.rules.length).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Gateway — multi-assistant registry
+// ---------------------------------------------------------------------------
+
+describe("Gateway — multi-assistant registry", () => {
+  const ctx = (): SubjectContext => ({
+    user_id: "u1",
+    goal_id: null,
+    task_id: null,
+    delegation_chain: [],
+    session_ttl: null,
+    extra: {},
+  });
+
+  it("dispatches to named assistant via registry", async () => {
+    const riskAssess: Assistant = {
+      name: "risk-assessment",
+      exfiltratesArgs: false,
+      decide() {
+        return {
+          decision: "deny",
+          risk: 0.8,
+          reasoning: "too risky",
+          fatigue_hint: false,
+          persist_rule: null,
+        };
+      },
+    };
+    const gw = new Gateway({
+      policy: Policy.fromSpec({
+        rules: [{ match: { tool: "fs.*" }, action: "assist:risk-assessment" }],
+        default: "deny",
+      }),
+      assistants: [riskAssess],
+      auditSink: new NullAuditSink(),
+      defaultContext: ctx(),
+    });
+    const { decision, audit } = await gw.decide("fs.read", {});
+    expect(decision).toBe("deny");
+    expect(audit.assistant).toBe("risk-assessment");
+    expect(audit.reasoning).toBe("too risky");
+  });
+
+  it("bare assist uses default assistant", async () => {
+    const assistant = new AutoApproveAssistant();
+    const gw = new Gateway({
+      policy: Policy.fromSpec({
+        rules: [{ match: { tool: "fs.*" }, action: "assist" }],
+        default: "deny",
+      }),
+      assistant,
+      auditSink: new NullAuditSink(),
+      defaultContext: ctx(),
+    });
+    const { decision } = await gw.decide("fs.read", {});
+    expect(decision).toBe("allow_once");
+  });
+
+  it("wrap blocks quarantine like deny/defer", async () => {
+    const gw = new Gateway({
+      policy: Policy.fromSpec({
+        rules: [{ match: { tool: "fs.*" }, action: "deny" }],
+        default: "deny",
+      }),
+      defaultContext: ctx(),
+      auditSink: new NullAuditSink(),
+    });
+    const fn = gw.wrap(
+      (path: string) => `read ${path}`,
+      { tool: "fs.read" }
+    );
+    await expect(fn("/etc/hosts")).rejects.toThrow(PermissionDenied);
   });
 });
