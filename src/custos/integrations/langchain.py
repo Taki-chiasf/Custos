@@ -51,7 +51,10 @@ def wrap_langchain_tools(
         description = getattr(tool, "description", "") or f"Wrapped by Custos: {name}"
         args_schema = getattr(tool, "args_schema", None)
         _gated = _make_gated_fn(
-            gateway, tool, name, descriptor,
+            gateway,
+            tool,
+            name,
+            descriptor,
             context_provider=context_provider,
             memory_wipe=memory_wipe,
         )
@@ -87,7 +90,11 @@ def _make_gated_fn(
         )
         snapshot = context_provider.get_snapshot() if context_provider else None
         result = gateway.decide(inv, snapshot=snapshot)
-        if result.decision == Decision.QUARANTINE and memory_wipe is not None and context_provider is not None:
+        if (
+            result.decision == Decision.QUARANTINE
+            and memory_wipe is not None
+            and context_provider is not None
+        ):
             current_ctx = context_provider.get_snapshot()
             memory_wipe.sanitize(current_ctx, (), WipeStrategy.FULL)
             raise PermissionDenied(name, result.decision.value)

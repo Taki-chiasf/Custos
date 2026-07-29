@@ -54,16 +54,14 @@ _INJECTION_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"delete\s+(?:the\s+)?(?:sent\s+)?(?:email|message)", re.IGNORECASE),
 )
 
-_BASE64_RE = re.compile(
-    r"(?:[A-Za-z0-9+/]{40,}={0,2})", re.IGNORECASE
-)
+_BASE64_RE = re.compile(r"(?:[A-Za-z0-9+/]{40,}={0,2})", re.IGNORECASE)
 
 _HOMOGLYPH_MAP: dict[str, str] = {
     "\u0430": "a",
-    "\u03F2": "c",
+    "\u03f2": "c",
     "\u0435": "e",
     "\u0455": "s",
-    "\u043E": "o",
+    "\u043e": "o",
     "\u0440": "p",
     "\u0445": "x",
     "\u0456": "i",
@@ -234,8 +232,7 @@ class IPIDefender(ContextInspectorBase):
 
             if score < self.similarity_threshold:
                 ref_scores = [
-                    ref.severity * ref.similarity(source.content)
-                    for ref in _REFERENCE_PATTERNS
+                    ref.severity * ref.similarity(source.content) for ref in _REFERENCE_PATTERNS
                 ]
                 best_ref = max(ref_scores) if ref_scores else 0.0
                 score = max(score, best_ref)
@@ -308,9 +305,7 @@ class IPIDefender(ContextInspectorBase):
                         InjectionFinding(
                             source=finding.source,
                             confidence=finding.confidence,
-                            affected_indices=self._find_affected_indices(
-                                snapshot, finding.source
-                            ),
+                            affected_indices=self._find_affected_indices(snapshot, finding.source),
                             method="leave_one_out",
                         )
                     )
@@ -350,9 +345,7 @@ class IPIDefender(ContextInspectorBase):
             system_prompt=snapshot.system_prompt,
         )
 
-    def _remove_source(
-        self, snapshot: ContextSnapshot, source: InputSource
-    ) -> ContextSnapshot:
+    def _remove_source(self, snapshot: ContextSnapshot, source: InputSource) -> ContextSnapshot:
         original_hash = source.content_hash
         filtered = tuple(s for s in snapshot.sources if s.content_hash != original_hash)
         return ContextSnapshot(
@@ -375,16 +368,11 @@ class IPIDefender(ContextInspectorBase):
                     affected.append(i)
         return tuple(affected)
 
-    def _build_judge_prompt(
-        self, inv: Invocation, snapshot: ContextSnapshot
-    ) -> str:
+    def _build_judge_prompt(self, inv: Invocation, snapshot: ContextSnapshot) -> str:
         messages_text = "\n".join(
-            m.get("content", "") for m in snapshot.messages
-            if isinstance(m.get("content"), str)
+            m.get("content", "") for m in snapshot.messages if isinstance(m.get("content"), str)
         )
-        sources_text = "\n".join(
-            f"[{s.source_type}] {s.content[:200]}" for s in snapshot.sources
-        )
+        sources_text = "\n".join(f"[{s.source_type}] {s.content[:200]}" for s in snapshot.sources)
         redacted = inv.with_redacted_args()
         return (
             f"Agent tool call: {inv.tool}\n"

@@ -151,7 +151,9 @@ class AsyncGateway:
             insp_registry.register(cast("ContextInspector", inspector))
         self._inspector_registry = insp_registry
 
-    async def decide(self, inv: Invocation, *, snapshot: ContextSnapshot | None = None) -> DecideResult:
+    async def decide(
+        self, inv: Invocation, *, snapshot: ContextSnapshot | None = None
+    ) -> DecideResult:
         """Run the full async pipeline for one invocation (steps 1-8).
 
         Returns a :class:`DecideResult` carrying both the final

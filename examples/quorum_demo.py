@@ -136,9 +136,13 @@ async def main_async() -> int:
 
     print("=== Custos quorum / separation-of-duties demo ===\n")
     print("Policy rule: payment.* requires quorum=2 from roles [finance, security]\n")
-    await _run_case(gw, Decision.ALLOW, Decision.DEFER, label="A. finance alone approves (security defers)")
+    await _run_case(
+        gw, Decision.ALLOW, Decision.DEFER, label="A. finance alone approves (security defers)"
+    )
     await _run_case(gw, Decision.ALLOW, Decision.ALLOW, label="B. finance + security both approve")
-    await _run_case(gw, Decision.DENY, Decision.ALLOW, label="C. finance denies (security approves)")
+    await _run_case(
+        gw, Decision.DENY, Decision.ALLOW, label="C. finance denies (security approves)"
+    )
 
     print(f"\n=== Audit log: {audit_path} ===")
     for line in audit_path.read_text(encoding="utf-8").splitlines():

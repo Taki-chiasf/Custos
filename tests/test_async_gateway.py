@@ -29,6 +29,7 @@ from custos.fatigue import InMemoryFatigueLayer
 from custos.policy import Policy, PolicyFile, PolicyOverlaySpec, PolicyRuleSpec
 from custos.schema import (
     AssistantOutput,
+    ContextSnapshot,
     DecideResult,
     Decision,
     Invocation,
@@ -522,3 +523,51 @@ async def test_wrap_langchain_shape_raises_with_pointer() -> None:
     gw = AsyncGatewayTiny(_policy([]))
     with pytest.raises(NotImplementedError, match="sync custos.Gateway"):
         gw.gw.wrap([FakeLangChainTool()])
+
+
+# --------------------------------------------------------------------------- #
+# AsyncGateway — A12 INSPECT pipeline (async)
+# --------------------------------------------------------------------------- #
+
+
+@_async_test
+async def test_inspect_safe_routes_to_assist() -> None:
+    from custos.inspectors import IPIDefender
+    from custos.schema import ContextSnapshot
+
+    inspector = IPIDefender()
+    assistant = FakeSyncAssistant(AssistantOutput(decision=Decision.ALLOW_ONCE))
+    policy = _policy([PolicyRuleSpec(match={"tool": "email.*"}, action="inspect:ipi-defender")])
+    gw = AsyncGateway(
+        policy=policy,
+        assistant=assistant,
+        inspector=inspector,
+        audit_sink=NullAuditSink(),
+    )
+    snap = ContextSnapshot(ts_unix_ms=0, messages=())
+    inv = _inv("email.send", context=_ctx())
+    result = await gw.decide(inv, snapshot=snap)
+    assert result.decision == Decision.ALLOW_ONCE
+    assert result.audit.inspector == "ipi-defender"
+
+
+@_async_test
+async def test_inspect_without_snapshot_denies() -> None:
+    from custos.inspectors import IPIDefender
+
+    inspector = IPIDefender()
+    policy = _policy([PolicyRuleSpec(match={"tool": "email.*"}, action="inspect:ipi-defender")])
+    gw = AsyncGateway(policy=policy, inspector=inspector, audit_sink=NullAuditSink())
+    inv = _inv("email.send", context=_ctx())
+    result = await gw.decide(inv)
+    assert result.decision == Decision.DENY
+
+
+@_async_test
+async def test_inspect_without_inspector_denies() -> None:
+    policy = _policy([PolicyRuleSpec(match={"tool": "email.*"}, action="inspect:nonexistent")])
+    gw = AsyncGateway(policy=policy, audit_sink=NullAuditSink())
+    inv = _inv("email.send", context=_ctx())
+    snap = ContextSnapshot(ts_unix_ms=0, messages=())
+    result = await gw.decide(inv, snapshot=snap)
+    assert result.decision == Decision.DENY

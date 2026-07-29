@@ -397,7 +397,9 @@ def test_rate_limit_counted_per_user() -> None:
     r_alice = gw.decide(
         Invocation(tool="t", args={"a": 1}, context=SubjectContext(user_id="alice"))
     ).decision
-    r_bob = gw.decide(Invocation(tool="t", args={"a": 2}, context=SubjectContext(user_id="bob"))).decision
+    r_bob = gw.decide(
+        Invocation(tool="t", args={"a": 2}, context=SubjectContext(user_id="bob"))
+    ).decision
     r_alice2 = gw.decide(
         Invocation(tool="t", args={"a": 3}, context=SubjectContext(user_id="alice"))
     ).decision

@@ -114,7 +114,10 @@ def gated_anthropic_tool(
     )
     definition = make_tool_definition(name, description, input_schema)
     gated_handler = _make_gated_anthropic_handler(
-        name, descriptor, gateway, handler,
+        name,
+        descriptor,
+        gateway,
+        handler,
         context_provider=context_provider,
         memory_wipe=memory_wipe,
     )
@@ -148,7 +151,10 @@ def wrap_anthropic_tool_handlers(
     for name, handler in handlers.items():
         descriptor = descriptors.get(name) or ToolDescriptor(name=name, risk_tier=3)
         out[name] = _make_gated_anthropic_handler(
-            name, descriptor, gateway, handler,
+            name,
+            descriptor,
+            gateway,
+            handler,
             context_provider=context_provider,
             memory_wipe=memory_wipe,
         )
@@ -248,7 +254,11 @@ def _make_gated_anthropic_handler(
         snapshot = context_provider.get_snapshot() if context_provider else None
         result = await gateway.decide(inv, snapshot=snapshot)
         decision = result.decision
-        if decision == Decision.QUARANTINE and memory_wipe is not None and context_provider is not None:
+        if (
+            decision == Decision.QUARANTINE
+            and memory_wipe is not None
+            and context_provider is not None
+        ):
             current_ctx = context_provider.get_snapshot()
             memory_wipe.sanitize(current_ctx, (), WipeStrategy.FULL)
             raise PermissionDenied(name, decision.value)

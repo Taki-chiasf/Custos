@@ -236,9 +236,7 @@ class Gateway:
                         skip_prompt = True
                 else:
                     inspector_name = getattr(resolved_insp, "name", None)
-                    result: InspectionResult = resolved_insp.inspect(
-                        inv, inv.context, snapshot
-                    )
+                    result: InspectionResult = resolved_insp.inspect(inv, inv.context, snapshot)
                     risk = result.confidence
                     reasoning = result.reasoning or f"inspector: {result.verdict.value}"
                     if result.verdict == InspectionVerdict.SAFE:

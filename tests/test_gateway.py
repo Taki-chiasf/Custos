@@ -752,6 +752,39 @@ def test_has_secret_args_no_secrets() -> None:
     assert _has_secret_args(desc) is False
 
 
+def test_redact_composite_schema_allof() -> None:
+    from custos.schema import _redact_args
+
+    schema = {
+        "allOf": [
+            {"properties": {"name": {"type": "string"}}},
+            {"properties": {"token": {"secret": True}}},
+        ],
+    }
+    desc = _desc(schema=schema)
+    args = {"name": "alice", "token": "sk-123"}
+    result = _redact_args(args, desc)
+    assert result["name"] == "alice"
+    assert result["token"] == "[REDACTED]"
+
+
+def test_redact_pattern_properties() -> None:
+    from custos.schema import _redact_args
+
+    schema = {
+        "patternProperties": {
+            "^secret_.*$": {"properties": {"val": {"secret": True}}},
+        },
+        "properties": {"visible": {"type": "string"}},
+    }
+    desc = _desc(schema=schema)
+    args = {"visible": "hello", "secret_key": {"val": "s3cret"}, "secret_val": {"val": "s3cret2"}}
+    result = _redact_args(args, desc)
+    assert result["visible"] == "hello"
+    assert result["secret_key"]["val"] == "[REDACTED]"
+    assert result["secret_val"]["val"] == "[REDACTED]"
+
+
 def test_persist_assistant_rule_deny_shadow_with_fn_match() -> None:
     """A later deny rule whose tool pattern fnmatches the persisted tool blocks persistence."""
     from custos.gateway import _persist_assistant_rule_impl
@@ -830,9 +863,7 @@ class TestGatewayInspectorPipeline:
         from custos.inspectors import IPIDefender
 
         inspector = IPIDefender()
-        policy = _policy(
-            [PolicyRuleSpec(match={"tool": "email.*"}, action="inspect:ipi-defender")]
-        )
+        policy = _policy([PolicyRuleSpec(match={"tool": "email.*"}, action="inspect:ipi-defender")])
         gw = Gateway(
             policy=policy,
             assistant=FakeAssistant(AssistantOutput(decision=Decision.ALLOW_ONCE)),
@@ -849,9 +880,7 @@ class TestGatewayInspectorPipeline:
         from custos.inspectors import IPIDefender
 
         inspector = IPIDefender(suspicious_threshold=0.3)
-        policy = _policy(
-            [PolicyRuleSpec(match={"tool": "email.*"}, action="inspect:ipi-defender")]
-        )
+        policy = _policy([PolicyRuleSpec(match={"tool": "email.*"}, action="inspect:ipi-defender")])
         responder = FakeResponder(choice=Decision.DENY)
         gw = Gateway(
             policy=policy,
@@ -870,9 +899,7 @@ class TestGatewayInspectorPipeline:
         from custos.inspectors import IPIDefender
 
         inspector = IPIDefender(injection_threshold=0.35)
-        policy = _policy(
-            [PolicyRuleSpec(match={"tool": "email.*"}, action="inspect:ipi-defender")]
-        )
+        policy = _policy([PolicyRuleSpec(match={"tool": "email.*"}, action="inspect:ipi-defender")])
         gw = Gateway(
             policy=policy,
             inspector=inspector,
@@ -889,9 +916,7 @@ class TestGatewayInspectorPipeline:
         from custos.inspectors import IPIDefender
 
         inspector = IPIDefender()
-        policy = _policy(
-            [PolicyRuleSpec(match={"tool": "email.*"}, action="inspect:ipi-defender")]
-        )
+        policy = _policy([PolicyRuleSpec(match={"tool": "email.*"}, action="inspect:ipi-defender")])
         gw = Gateway(policy=policy, inspector=inspector, audit_sink=NullAuditSink())
         inv = _inv("email.send", context=_ctx())
         decision = gw.decide(inv).decision
@@ -900,9 +925,7 @@ class TestGatewayInspectorPipeline:
     def test_inspect_without_inspector_denies(self):
         from custos.gateway import Gateway
 
-        policy = _policy(
-            [PolicyRuleSpec(match={"tool": "email.*"}, action="inspect:nonexistent")]
-        )
+        policy = _policy([PolicyRuleSpec(match={"tool": "email.*"}, action="inspect:nonexistent")])
         gw = Gateway(policy=policy, audit_sink=NullAuditSink())
         inv = _inv("email.send", context=_ctx())
         decision = gw.decide(inv, snapshot=self._inspect_snap("test")).decision
@@ -913,9 +936,7 @@ class TestGatewayInspectorPipeline:
         from custos.inspectors import IPIDefender
 
         inspector = IPIDefender()
-        policy = _policy(
-            [PolicyRuleSpec(match={"tool": "email.*"}, action="inspect:ipi-defender")]
-        )
+        policy = _policy([PolicyRuleSpec(match={"tool": "email.*"}, action="inspect:ipi-defender")])
         gw = Gateway(
             policy=policy,
             assistant=FakeAssistant(AssistantOutput(decision=Decision.ALLOW_ONCE)),
@@ -932,9 +953,7 @@ class TestGatewayInspectorPipeline:
         from custos.inspectors import IPIDefender
 
         inspector = IPIDefender()
-        policy = _policy(
-            [PolicyRuleSpec(match={"tool": "email.*"}, action="inspect")]
-        )
+        policy = _policy([PolicyRuleSpec(match={"tool": "email.*"}, action="inspect")])
         gw = Gateway(
             policy=policy,
             assistant=FakeAssistant(AssistantOutput(decision=Decision.ALLOW_ONCE)),

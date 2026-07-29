@@ -141,7 +141,10 @@ def wrap_callables(
         tool_name = descriptor.name or py_name
         wrapped.append(
             _wrap_one(
-                gateway, tool, tool_name, descriptor,
+                gateway,
+                tool,
+                tool_name,
+                descriptor,
                 context_provider=context_provider,
                 memory_wipe=memory_wipe,
             )

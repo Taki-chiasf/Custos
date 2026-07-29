@@ -136,6 +136,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def _allow_once(reason: str):
     from custos.schema import AssistantOutput
+
     return AssistantOutput(decision=Decision.ALLOW_ONCE, risk=0.1, reasoning=reason)
 
 
