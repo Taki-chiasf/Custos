@@ -4,9 +4,9 @@ All notable changes to Custos are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.1] — 2026-08-01
 
-### Added (v1.1.0a1)
+### Added
 - **A12 `ipi-defender`** — context inspector for selective IPI defence.
   Fast-path pattern matching + n-gram similarity against known injection
   markers; optional deep-path leave-one-out causal attribution via LLM.
@@ -24,8 +24,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Adapter support for context provider + memory wipe in LangChain, OpenAI
   Agents, and Anthropic adapters.
 
+### Fixed
+- LlamaIndex adapter import-hygiene test now handles environments where the
+  SDK is present (skips ImportError assertion).
+
 ### Remaining
 - Full 1440-cell Janus-v1 parity matrix run.
+
+## [Unreleased]
 
 ## [1.0.1] — 2026-07-28
 
@@ -214,7 +220,8 @@ Core middleware. 183 tests pass.
 - Python SDK `Gateway.wrap` with `functools.wraps` signature preservation.
 - LangChain adapter (`custos-middleware[langchain]` extra).
 
-[Unreleased]: https://github.com/Taki-chiasf/Custos/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/Taki-chiasf/Custos/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/Taki-chiasf/Custos/compare/v1.0.1...v1.1.1
 [1.0.1]: https://github.com/Taki-chiasf/Custos/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Taki-chiasf/Custos/compare/v1.0.0rc1...v1.0.0
 [1.0.0rc1]: https://github.com/Taki-chiasf/Custos/compare/v0.4.0...v1.0.0rc1

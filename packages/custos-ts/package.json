@@ -1,6 +1,6 @@
 {
   "name": "@taqiy/custos-core",
-  "version": "1.1.0a1",
+  "version": "1.1.1",
   "description": "Drop-in permission middleware for AI agents - TypeScript SDK (deterministic subset).",
   "license": "Apache-2.0",
   "author": "Custos contributors",

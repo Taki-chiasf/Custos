@@ -150,23 +150,26 @@ async def test_gated_callable_custos_context_escape_hatch() -> None:
 
 def test_gated_llamaindex_tool_factory_callable_without_sdk() -> None:
     """The factory returns without importing the SDK — the SDK is only
-    touched when the factory itself runs (which we don't exercise here,
-    since the SDK is absent in the runtime-only install).
+    touched when the factory itself runs. When the SDK is absent, the late
+    import inside the factory function body raises ImportError; when it is
+    present (e.g. local dev venv with the eval extra), the factory succeeds.
+    This is the import-hygiene proof: the late import is deferred.
     """
+    import importlib.util
+
+    import pytest
+
     gw = _gw([PolicyRuleSpec(match={"tool": "*"}, action="allow")])
 
     def f(x: int) -> int:
         return x
 
-    # Should raise ImportError (not AttributeError or ModuleNotFoundError
-    # surfacing as something else) when the SDK is absent — this is the
-    #  import hygiene proof: the late import happens inside the
-    # factory function body, not at module import time. We accept any
-    # ImportError variant (`ImportError` or `ModuleNotFoundError`).
-    import pytest
-
-    with pytest.raises((ImportError, ModuleNotFoundError)):
-        gated_llamaindex_tool(gw, f)
+    if importlib.util.find_spec("llama_index.core.tools"):
+        result = gated_llamaindex_tool(gw, f)
+        assert result is not None
+    else:
+        with pytest.raises((ImportError, ModuleNotFoundError)):
+            gated_llamaindex_tool(gw, f)
 
 
 # --------------------------------------------------------------------------- #
