@@ -97,7 +97,7 @@ google-adk = [
 ]
 # LlamaIndex adapter (carry-forward).
 llamaindex = [
-    "llama-index-core>=0.12,<0.13",
+    "llama-index-core>=0.12,<0.15",
 ]
 # OTLP + Prometheus metrics, opt-in (default-off). Native
 # packages kept behind the extra; no telemetry surface without it.
