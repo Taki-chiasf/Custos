@@ -164,7 +164,14 @@ def test_gated_llamaindex_tool_factory_callable_without_sdk() -> None:
     def f(x: int) -> int:
         return x
 
-    if importlib.util.find_spec("llama_index.core.tools"):
+    # find_spec raises ModuleNotFoundError when the parent namespace package
+    # does not exist; catch it as "SDK absent".
+    try:
+        has_llamaindex = importlib.util.find_spec("llama_index.core.tools") is not None
+    except ModuleNotFoundError:
+        has_llamaindex = False
+
+    if has_llamaindex:
         result = gated_llamaindex_tool(gw, f)
         assert result is not None
     else:
